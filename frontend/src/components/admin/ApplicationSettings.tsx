@@ -169,7 +169,9 @@ export const ApplicationSettings: React.FC = () => {
               <svg className="h-4 w-4 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
-              <p className="text-sm text-green-700">Deadline updated successfully!</p>
+              <p className="text-sm text-green-700">
+                <span className="font-medium">Success!</span> Application deadline updated. Citizens will see the new countdown timer immediately.
+              </p>
             </div>
           </div>
         )}

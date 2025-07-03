@@ -6,6 +6,8 @@ export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [message, setMessage] = useState('');
+    const [loading, setLoading] = useState(false);
+    const [rememberMe, setRememberMe] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -51,12 +53,19 @@ export default function Login() {
 
     const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
-        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        setLoading(true);
+        setMessage('');
 
-        if (error) {
-            setMessage(error.message);
-            return;
-        }
+        try {
+            const { data, error } = await supabase.auth.signInWithPassword({ 
+                email, 
+                password
+            });
+
+            if (error) {
+                setMessage(error.message);
+                return;
+            }
 
         // Fetch role
         const { data: profile, error: profileError } = await supabase
@@ -78,10 +87,16 @@ export default function Login() {
         
         console.log('Is admin:', isAdmin, 'Raw value:', profile?.is_admin);
 
-        if (isAdmin) {
-            navigate('/admin');
-        } else {
-            navigate('/citizen');
+            if (isAdmin) {
+                navigate('/admin');
+            } else {
+                navigate('/citizen');
+            }
+        } catch (err) {
+            console.error('Login error:', err);
+            setMessage('An unexpected error occurred. Please try again.');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -117,12 +132,33 @@ export default function Login() {
                             required
                         />
                     </div>
+
+                    <div className="flex items-center">
+                        <input
+                            id="remember-me"
+                            type="checkbox"
+                            checked={rememberMe}
+                            onChange={(e) => setRememberMe(e.target.checked)}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                        />
+                        <label htmlFor="remember-me" className="ml-2 block text-sm text-gray-700">
+                            Remember me
+                        </label>
+                    </div>
                     
                     <button 
                         type="submit" 
-                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-3 rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all transform hover:scale-105 font-semibold shadow-lg"
+                        disabled={loading}
+                        className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-3 rounded-lg hover:from-blue-700 hover:to-indigo-700 transition-all transform hover:scale-105 font-semibold shadow-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                     >
-                        Login 🚀
+                        {loading ? (
+                            <div className="flex items-center justify-center">
+                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                                Signing in...
+                            </div>
+                        ) : (
+                            'Login 🚀'
+                        )}
                     </button>
                 </form>
                 
