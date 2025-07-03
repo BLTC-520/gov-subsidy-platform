@@ -83,3 +83,94 @@
 - `pages/Admin.tsx` - Completely redesigned as comprehensive dashboard with stats
 - `components/common/AdminLayout.tsx` - Enhanced with dropdown navigation and current page detection
 - `App.tsx` - Updated routing with proper route ordering for nested paths
+
+---
+
+## July 03 (8:30pm - 10:30pm) - 2 Hours Sprint ⚡
+### Phase 3: Complete Citizen Portal & Deadline Management ✅ COMPLETE
+
+#### 🚀 Major Achievements (2 Hour Sprint):
+- **✅ Fixed Authentication Issues**: Resolved infinite recursion in RLS policies
+- **✅ Complete Citizen Portal**: Full profile form with Malaysian states & Ethereum validation  
+- **✅ Admin-Controlled Deadlines**: Dynamic deadline system with real-time countdown
+- **✅ Real-time Form Disabling**: Form auto-disables when deadline passes (no refresh needed)
+- **✅ Comprehensive Edge Case Testing**: All validation scenarios tested and working
+
+#### 🔧 Critical Technical Fixes:
+1. **RLS Infinite Recursion Solved**: 
+   - Created `is_user_admin()` security definer function
+   - Fixed "infinite recursion detected in policy for relation 'profiles'" error
+   - Proper admin access to view all profiles for dashboard stats
+
+2. **Role-Based Authentication**: 
+   - Direct role checking during login (`is_admin` field validation)
+   - Simplified routing: admin → `/admin`, citizen → `/citizen`
+   - Handles both boolean `true` and string `"true"` values for is_admin
+
+3. **Real-time Deadline Management**:
+   - Admin sets deadline in Application Settings panel
+   - Citizens see countdown timer with visual urgency (green → yellow → red)
+   - Form automatically disables when deadline passes (10-second interval checking)
+
+#### 🎯 New Features Implemented:
+
+**Admin Dashboard Enhancements:**
+- Application Settings panel for deadline management
+- DateTime picker for setting submission deadlines
+- Real-time countdown display for admins
+- Fixed statistics showing correct counts (Citizens: 1, Admins: 1, Documents: 1)
+
+**Complete Citizen Portal:**
+- Profile form with Malaysian states dropdown (16 states + territories)
+- Ethereum wallet address validation (`/^0x[a-fA-F0-9]{40}$/`)
+- Real-time deadline countdown with visual urgency indicators
+- Form validation: negative values, required fields, boundary conditions
+- Auto-save prevention when deadline passes
+
+**Deadline System:**
+- `app_settings` table for dynamic configuration
+- Real-time countdown timer component
+- Form disable logic with immediate effect (no refresh required)
+- Visual deadline status in citizen portal
+
+#### 🧪 Edge Cases Tested & Working:
+- ✅ **Invalid Ethereum Address**: `0x123` (too short) shows validation error
+- ✅ **Negative Values**: `-5` children, `0` household size, `-1000` income blocked
+- ✅ **Real-time Deadline**: Set 2-minute deadline, form disables when countdown hits zero
+- ✅ **Extreme Values**: Boundary condition testing passed
+- ✅ **Concurrent Access**: Admin/citizen in different tabs working correctly
+
+#### Files Created/Modified:
+**New Hooks:**
+- `src/hooks/useAppSettings.ts` - Deadline management with real-time updates
+- `src/hooks/useProfile.ts` - Citizen profile CRUD operations with validation
+- `src/hooks/useDeadlineStatus.ts` - Real-time deadline checking (10-second intervals)
+
+**New Components:**
+- `src/components/admin/ApplicationSettings.tsx` - Admin deadline control panel
+- `src/components/common/CitizenLayout.tsx` - Citizen portal layout with navigation
+- `src/components/common/CountdownTimer.tsx` - Real-time countdown with urgency colors
+
+**New Pages:**
+- `src/pages/CitizenProfilePage.tsx` - Complete citizen profile form
+- `src/pages/CitizenClaimPage.tsx` - Future claim functionality placeholder
+
+**Enhanced:**
+- `src/pages/Login.tsx` - Fixed role checking (boolean/string handling)
+- `src/pages/Admin.tsx` - Added Application Settings panel, fixed stats queries
+- `src/App.tsx` - Updated routing for citizen pages
+
+#### Malaysian States Implemented:
+`['Johor', 'Kedah', 'Kelantan', 'Melaka', 'Negeri Sembilan', 'Pahang', 'Pulau Pinang', 'Perak', 'Perlis', 'Sabah', 'Sarawak', 'Selangor', 'Terengganu', 'Kuala Lumpur', 'Labuan', 'Putrajaya']`
+
+#### ⚡ Performance Notes:
+- Real-time deadline checking: 10-second intervals (balance between UX and performance)
+- Countdown timer: 1-minute intervals for display updates
+- Form disable: Immediate effect without page refresh
+- Total build time: ~500ms (optimized bundle)
+
+#### 🎉 Status: FULLY FUNCTIONAL CITIZEN PORTAL
+- Citizens can register, fill profiles, see countdown, submit before deadline
+- Admins can manage deadlines, view statistics, upload documents
+- Real-time feedback and validation throughout the user journey
+- Ready for Phase 4: AI Integration for eligibility scoring

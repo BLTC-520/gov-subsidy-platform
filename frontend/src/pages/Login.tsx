@@ -20,13 +20,22 @@ export default function Login() {
             
             if (data.session) {
                 // User is confirmed, fetch profile and redirect
-                const { data: profile } = await supabase
+                const { data: profile, error: profileError } = await supabase
                     .from('profiles')
                     .select('is_admin')
                     .eq('id', data.session.user.id)
                     .single();
                 
-                if (profile?.is_admin) {
+                if (profileError) {
+                    console.error('Profile fetch error in callback:', profileError);
+                    setMessage('Unable to determine user role. Please try again.');
+                    return;
+                }
+                
+                // Handle both boolean and string values for is_admin
+                const isAdmin = profile?.is_admin === true || String(profile?.is_admin) === 'true';
+                
+                if (isAdmin) {
                     navigate('/admin');
                 } else {
                     navigate('/citizen');
@@ -50,14 +59,30 @@ export default function Login() {
         }
 
         // Fetch role
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
             .from('profiles')
             .select('is_admin')
             .eq('id', data.user.id)
             .single();
 
-        if (profile?.is_admin) navigate('/admin');
-        else navigate('/citizen');
+        if (profileError) {
+            console.error('Profile fetch error:', profileError);
+            setMessage('Unable to determine user role. Please try again.');
+            return;
+        }
+
+        console.log('Profile data:', profile);
+        
+        // Handle both boolean and string values for is_admin
+        const isAdmin = profile?.is_admin === true || String(profile?.is_admin) === 'true';
+        
+        console.log('Is admin:', isAdmin, 'Raw value:', profile?.is_admin);
+
+        if (isAdmin) {
+            navigate('/admin');
+        } else {
+            navigate('/citizen');
+        }
     };
 
     return (

@@ -2,7 +2,8 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Admin from './pages/Admin';
-import Citizen from './pages/Citizen';
+import CitizenProfilePage from './pages/CitizenProfilePage';
+import CitizenClaimPage from './pages/CitizenClaimPage';
 import FileUploadPage from './pages/FileUploadPage';
 
 function App() {
@@ -14,7 +15,9 @@ function App() {
         <Route path="/signup" element={<Signup />} />
         <Route path="/admin/file-upload" element={<FileUploadPage />} />
         <Route path="/admin" element={<Admin />} />
-        <Route path="/citizen" element={<Citizen />} />
+        <Route path="/citizen" element={<CitizenProfilePage />} />
+        <Route path="/citizen/profile" element={<CitizenProfilePage />} />
+        <Route path="/citizen/claim" element={<CitizenClaimPage />} />
       </Routes>
     </Router>
   );

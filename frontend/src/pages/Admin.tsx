@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '../components/common/AdminLayout';
+import { ApplicationSettings } from '../components/admin/ApplicationSettings';
 import { supabase } from '../lib/supabase';
 
 interface DashboardStats {
@@ -33,36 +34,23 @@ export default function Admin() {
     try {
       setLoading(true);
 
-      // Debug: Check if RLS is blocking profile access
-      const { data: allProfiles } = await supabase
+      // Get profile counts directly
+      const { count: citizenCount } = await supabase
         .from('profiles')
-        .select('*');
+        .select('*', { count: 'exact', head: true })
+        .eq('is_admin', false);
       
-      console.log('All profiles visible to current user:', allProfiles);
-
-      // Get citizens (is_admin = false, handling both boolean and string)
-      const { data: citizens, count: citizenCount, error: citizenError } = await supabase
+      const { count: adminCount } = await supabase
         .from('profiles')
-        .select('*', { count: 'exact' })
-        .or('is_admin.eq.false,is_admin.eq."false"');
+        .select('*', { count: 'exact', head: true })
+        .eq('is_admin', true);
+
+      console.log('Stats - Citizens:', citizenCount, 'Admins:', adminCount);
       
-      // Get admins (is_admin = true, handling both boolean and string)
-      const { data: admins, count: adminCount, error: adminError } = await supabase
-        .from('profiles')
-        .select('*', { count: 'exact' })
-        .or('is_admin.eq.true,is_admin.eq."true"');
-
-      console.log('Citizens data:', citizens, 'Count:', citizenCount);
-      console.log('Admins data:', admins, 'Count:', adminCount);
-
       // Get documents from storage
-      const { data: documents, error: docsError } = await supabase.storage
+      const { data: documents } = await supabase.storage
         .from('documents')
         .list('', { limit: 1000 });
-
-      if (citizenError) throw citizenError;
-      if (adminError) throw adminError;
-      if (docsError) throw docsError;
 
       const validDocuments = documents?.filter(file => 
         !file.name.startsWith('.') && 
@@ -77,12 +65,15 @@ export default function Admin() {
         new Date(doc.created_at) > yesterday
       ).length;
 
+      console.log('Documents found:', validDocuments.length);
+
       setStats({
         totalCitizens: citizenCount || 0,
         totalAdmins: adminCount || 0,
         totalDocuments: validDocuments.length,
         recentUploads
       });
+
     } catch (error) {
       console.error('Dashboard stats error:', error);
     } finally {
@@ -228,6 +219,9 @@ export default function Admin() {
             </div>
           </div>
         </div>
+
+        {/* Application Settings */}
+        <ApplicationSettings />
 
         {/* System Status */}
         <div className="bg-white rounded-lg shadow-md p-6">
