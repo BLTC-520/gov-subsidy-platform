@@ -184,15 +184,6 @@ export default function Admin() {
               <span className="text-blue-700 font-medium">Upload RAG Documents</span>
             </button>
 
-            <button 
-              onClick={() => navigate('/admin/batch-airdrop')}
-              className="flex items-center justify-center p-4 bg-green-50 rounded-lg border border-green-200 hover:bg-green-100 transition-colors"
-            >
-              <svg className="h-5 w-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1" />
-              </svg>
-              <span className="text-green-700 font-medium">Batch Airdrop</span>
-            </button>
 
             <button 
               onClick={loadDashboardStats}
@@ -206,6 +197,35 @@ export default function Admin() {
                 {loading ? 'Refreshing...' : 'Refresh Stats'}
               </span>
             </button>
+          </div>
+        </div>
+
+        {/* Airdrop Status */}
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">Airdrop Status</h3>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-sm text-gray-600">Citizens Eligible</div>
+                <div className="text-2xl font-bold text-green-600">354</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-600">Claims Completed</div>
+                <div className="text-2xl font-bold text-blue-600">188</div>
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="text-sm text-gray-600">Remaining to Claim</div>
+                <div className="text-2xl font-bold text-orange-600">166</div>
+              </div>
+              <div>
+                <div className="text-sm text-gray-600">Smart Contract Address</div>
+                <div className="text-xs font-mono text-gray-800 bg-gray-100 px-2 py-1 rounded">
+                  0xabc...123 (copyable)
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
