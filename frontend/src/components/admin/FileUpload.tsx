@@ -21,9 +21,9 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadSuccess }) => {
   } = useFileUpload();
 
   // Handles file selection from input or drag-and-drop
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(event.target.files || []);
-    addFiles(selectedFiles);
+    await addFiles(selectedFiles);
   };
 
   // Handles drag and drop events
@@ -32,11 +32,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({ onUploadSuccess }) => {
     e.stopPropagation();
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = async (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     const droppedFiles = Array.from(e.dataTransfer.files);
-    addFiles(droppedFiles);
+    await addFiles(droppedFiles);
   };
 
   // Triggers file input click

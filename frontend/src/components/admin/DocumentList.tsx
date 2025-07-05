@@ -23,6 +23,8 @@ export const DocumentList = ({ refreshTrigger }: DocumentListProps) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>('');
   const [deleteLoading, setDeleteLoading] = useState<string>('');
+  const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
+  const [batchDeleteLoading, setBatchDeleteLoading] = useState(false);
 
   // Load documents on component mount and when refresh trigger changes
   useEffect(() => {
@@ -63,7 +65,69 @@ export const DocumentList = ({ refreshTrigger }: DocumentListProps) => {
     }
   };
 
-  // Deletes a document from Supabase storage
+  // Handles file selection for batch operations
+  const toggleFileSelection = (fileName: string) => {
+    setSelectedFiles(prev => {
+      const newSelected = new Set(prev);
+      if (newSelected.has(fileName)) {
+        newSelected.delete(fileName);
+      } else {
+        newSelected.add(fileName);
+      }
+      return newSelected;
+    });
+  };
+
+  // Selects or deselects all files
+  const toggleSelectAll = () => {
+    if (selectedFiles.size === documents.length) {
+      setSelectedFiles(new Set());
+    } else {
+      setSelectedFiles(new Set(documents.map(doc => doc.name)));
+    }
+  };
+
+  // Deletes multiple files in batch
+  const batchDeleteFiles = async () => {
+    if (selectedFiles.size === 0) return;
+
+    const fileNames = Array.from(selectedFiles);
+    const confirmDelete = window.confirm(
+      `Are you sure you want to delete ${fileNames.length} file(s)? This action cannot be undone.\n\nFiles to delete:\n${fileNames.join('\n')}`
+    );
+    
+    if (!confirmDelete) return;
+
+    try {
+      setBatchDeleteLoading(true);
+      setError('');
+
+      console.log('Attempting to delete files:', fileNames);
+      
+      const { data, error: deleteError } = await supabase.storage
+        .from('documents')
+        .remove(fileNames);
+
+      console.log('Batch delete response:', { data, error: deleteError });
+
+      if (deleteError) {
+        console.error('Batch delete error details:', deleteError);
+        throw deleteError;
+      }
+
+      // Clear selection and refresh the document list
+      setSelectedFiles(new Set());
+      await loadDocuments();
+      
+    } catch (err) {
+      console.error('Error batch deleting documents:', err);
+      setError(`Failed to delete selected files: ${err instanceof Error ? err.message : 'Unknown error'}`);
+    } finally {
+      setBatchDeleteLoading(false);
+    }
+  };
+
+  // Deletes a single document from Supabase storage
   const deleteDocument = async (fileName: string) => {
     const confirmDelete = window.confirm(`Are you sure you want to delete "${fileName}"? This action cannot be undone.`);
     
@@ -85,6 +149,13 @@ export const DocumentList = ({ refreshTrigger }: DocumentListProps) => {
         console.error('Delete error details:', deleteError);
         throw deleteError;
       }
+
+      // Remove from selection if it was selected
+      setSelectedFiles(prev => {
+        const newSelected = new Set(prev);
+        newSelected.delete(fileName);
+        return newSelected;
+      });
 
       // Refresh the document list after successful deletion
       await loadDocuments();
@@ -141,13 +212,49 @@ export const DocumentList = ({ refreshTrigger }: DocumentListProps) => {
     <div className="bg-white rounded-lg shadow-md p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-semibold text-gray-800">Uploaded Documents</h2>
-        <button
-          onClick={loadDocuments}
-          disabled={loading}
-          className="text-blue-600 hover:text-blue-800 text-sm font-medium disabled:opacity-50"
-        >
-          {loading ? 'Loading...' : 'Refresh'}
-        </button>
+        <div className="flex items-center space-x-3">
+          {documents.length > 0 && (
+            <>
+              {selectedFiles.size > 0 && (
+                <button
+                  onClick={batchDeleteFiles}
+                  disabled={batchDeleteLoading}
+                  className="flex items-center space-x-2 px-3 py-1.5 bg-red-600 text-white text-sm font-medium rounded-md hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  {batchDeleteLoading ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l-3-2.647z"></path>
+                      </svg>
+                      <span>Deleting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1-1H8a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      <span>Delete Selected ({selectedFiles.size})</span>
+                    </>
+                  )}
+                </button>
+              )}
+              <button
+                onClick={toggleSelectAll}
+                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+              >
+                {selectedFiles.size === documents.length ? 'Deselect All' : 'Select All'}
+              </button>
+            </>
+          )}
+          <button
+            onClick={loadDocuments}
+            disabled={loading}
+            className="text-blue-600 hover:text-blue-800 text-sm font-medium disabled:opacity-50"
+          >
+            {loading ? 'Loading...' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -174,8 +281,18 @@ export const DocumentList = ({ refreshTrigger }: DocumentListProps) => {
       ) : (
         <div className="space-y-3 max-h-96 overflow-y-auto">
           {documents.map((doc) => (
-            <div key={doc.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors">
+            <div key={doc.id} className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
+              selectedFiles.has(doc.name) 
+                ? 'bg-blue-50 border border-blue-200' 
+                : 'bg-gray-50 hover:bg-gray-100'
+            }`}>
               <div className="flex items-center min-w-0 flex-1">
+                <input
+                  type="checkbox"
+                  checked={selectedFiles.has(doc.name)}
+                  onChange={() => toggleFileSelection(doc.name)}
+                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded mr-3"
+                />
                 {getFileIcon(doc.name)}
                 <div className="ml-3 min-w-0 flex-1">
                   <p className="text-sm font-medium text-gray-900 truncate" title={doc.name}>
@@ -199,7 +316,7 @@ export const DocumentList = ({ refreshTrigger }: DocumentListProps) => {
                 </span>
                 <button
                   onClick={() => deleteDocument(doc.name)}
-                  disabled={deleteLoading === doc.name}
+                  disabled={deleteLoading === doc.name || batchDeleteLoading}
                   className="p-1 text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   title={`Delete ${doc.name}`}
                 >
@@ -221,8 +338,17 @@ export const DocumentList = ({ refreshTrigger }: DocumentListProps) => {
       )}
 
       <div className="mt-4 text-sm text-gray-500 border-t pt-4">
-        <p>Total documents: {documents.length}</p>
-        <p>These files are available for RAG processing</p>
+        <div className="flex justify-between items-center">
+          <div>
+            <p>Total documents: {documents.length}</p>
+            <p>These files are available for RAG processing</p>
+          </div>
+          {selectedFiles.size > 0 && (
+            <div className="text-blue-600 font-medium">
+              {selectedFiles.size} file(s) selected
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
