@@ -127,7 +127,7 @@ export default function CitizenProfilePage() {
   }
 
   return (
-    <CitizenLayout title="Profile">
+    <CitizenLayout title="Application Form">
       <div className="max-w-2xl mx-auto space-y-6">
         {/* Deadline Timer */}
         <div className="bg-white rounded-lg shadow-md p-6">
@@ -155,7 +155,6 @@ export default function CitizenProfilePage() {
               </div>
             )}
           </div>
-
           {error && (
             <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
               <p className="text-sm text-red-700">{error}</p>

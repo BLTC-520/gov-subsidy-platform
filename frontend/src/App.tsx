@@ -3,6 +3,7 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Admin from './pages/Admin';
 import CitizenProfilePage from './pages/CitizenProfilePage';
+import ProfilePage from './pages/ProfilePage';
 import CitizenClaimPage from './pages/CitizenClaimPage';
 import FileUploadPage from './pages/FileUploadPage';
 import { RouteGuard } from './components/auth/RouteGuard';
@@ -31,7 +32,7 @@ function App() {
         } />
         <Route path="/citizen/profile" element={
           <RouteGuard requiredRole="citizen">
-            <CitizenProfilePage />
+            <ProfilePage />
           </RouteGuard>
         } />
         <Route path="/citizen/claim" element={
