@@ -242,3 +242,46 @@
 - All edge cases handled and tested
 
 **Platform is now ready for Phase 4: AI Integration for eligibility scoring! 🚀**
+
+---
+
+## July 05 (12:00pm - 1:00pm) - Profile Split & File Security ⚡
+
+#### Files Created:
+- `src/pages/ProfilePage.tsx` - Read-only profile view
+
+#### Files Enhanced:
+- `src/pages/CitizenProfilePage.tsx` - Form-only (removed tabs)
+- `src/components/common/CitizenLayout.tsx` - Added "Application Form" + "Profile" menu
+- `src/hooks/useFileUpload.ts` - SHA-256 duplicate detection + filename sanitization
+- `src/components/admin/DocumentList.tsx` - Batch delete with checkboxes
+
+#### What We Built:
+1. **Profile Separation**: Form editing vs viewing as separate pages
+2. **Content Duplicate Detection**: SHA-256 hashing prevents same file uploads
+3. **Filename Sanitization**: Handles special characters, length limits, security
+4. **Batch File Operations**: Select multiple files, bulk delete
+5. **Advanced Validation**: Control characters, dangerous patterns, MIME types
+
+#### SHA-256 Code & Analysis:
+```javascript
+const calculateFileHash = async (file: File): Promise<string> => {
+  const reader = new FileReader();
+  reader.onload = async (event) => {
+    const arrayBuffer = event.target?.result as ArrayBuffer; // Loads ENTIRE file into RAM
+    const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+    const hashHex = Array.from(new Uint8Array(hashBuffer))
+      .map(b => b.toString(16).padStart(2, '0')).join('');
+    resolve(hashHex);
+  };
+  reader.readAsArrayBuffer(file); // ⚠️ Memory bomb for large files
+};
+```
+**>1GB File Problem:** Browser crashes! `readAsArrayBuffer()` loads entire file into memory
+**Result:** 1GB file = 1GB RAM usage → Browser freeze/crash, especially mobile devices
+**Solution:** Chunked reading with streams or file size limits (we limit to PDF/DOCX ~50MB max)
+
+#### Problem Solved:
+- Same file uploaded twice with different timestamps → Now blocked by content hash
+- Filename security issues → Sanitized and validated  
+- No bulk operations → Added batch delete with UI selection

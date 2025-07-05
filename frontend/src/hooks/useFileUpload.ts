@@ -81,12 +81,19 @@ export const useFileUpload = () => {
       /^\./,          // Hidden files
       /\.\./, // Directory traversal
       /[<>:"|?*]/,    // Windows invalid chars
-      /[\x00-\x1f]/,  // Control characters
     ];
     
     for (const pattern of dangerousPatterns) {
       if (pattern.test(filename)) {
         return { isValid: false, error: 'Filename contains invalid characters' };
+      }
+    }
+    
+    // Check for control characters (0x00-0x1F) using charCodeAt to avoid regex linting issues
+    for (let i = 0; i < filename.length; i++) {
+      const charCode = filename.charCodeAt(i);
+      if (charCode >= 0 && charCode <= 31) {
+        return { isValid: false, error: 'Filename contains control characters' };
       }
     }
     
