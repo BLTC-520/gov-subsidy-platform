@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { CitizenLayout } from '../components/common/CitizenLayout';
 
 interface DemoStep {
@@ -137,7 +137,7 @@ export default function ZKDemoPage() {
       updateStepStatus(5, 'loading');
       await sleep(500);
 
-      const classSum = circuitResult.classFlags.reduce((sum, flag) => sum + flag, 0);
+      const classSum = circuitResult.classFlags.reduce((sum: number, flag: number) => sum + flag, 0);
       const verificationMessage = circuitResult.dataAuthentic 
         ? `Verification successful: Classification = ${circuitResult.classification} (flags sum: ${classSum})`
         : 'Verification failed: Invalid signature, all classifications zero';
@@ -326,7 +326,7 @@ export default function ZKDemoPage() {
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Demo Process</h3>
           
           <div className="space-y-4">
-            {steps.map((step, index) => (
+            {steps.map((step) => (
               <div key={step.id} className="flex items-start space-x-4">
                 <div className="flex-shrink-0 mt-1">
                   {getStepIcon(step.status)}

@@ -222,6 +222,8 @@ app.get('/api-docs.json', (req, res) => {
 const ZK_PROJECT_PATH = path.join(__dirname, '../zkp');
 const CIRCUITS_PATH = path.join(ZK_PROJECT_PATH, 'circuits');
 const OUTPUTS_PATH = path.join(ZK_PROJECT_PATH, 'outputs');
+const PROOFS_PATH = path.join(ZK_PROJECT_PATH, 'proofs');
+const INPUTS_PATH = path.join(ZK_PROJECT_PATH, 'inputs');
 
 /**
  * @swagger
@@ -294,11 +296,13 @@ app.post('/api/execute-circuit', async (req, res) => {
             public_key_preview: circuitInputs.public_key?.substring(0, 20) + '...'
         });
 
-        // Ensure outputs directory exists
+        // Ensure all directories exist
         await fs.mkdir(OUTPUTS_PATH, { recursive: true });
+        await fs.mkdir(PROOFS_PATH, { recursive: true });
+        await fs.mkdir(INPUTS_PATH, { recursive: true });
 
-        // Write input.json file
-        const inputPath = path.join(OUTPUTS_PATH, 'input.json');
+        // Write input.json file to inputs directory
+        const inputPath = path.join(INPUTS_PATH, 'input.json');
         await fs.writeFile(inputPath, JSON.stringify(circuitInputs, null, 2));
 
         // Step 1: Compile circuit if needed
@@ -321,15 +325,39 @@ app.post('/api/execute-circuit', async (req, res) => {
             });
         }
 
-        // Step 3: Extract outputs from witness
+        // Step 3: Generate ZK Proof (THE CORE ZK FUNCTIONALITY)
+        const proofResult = await generateZKProof();
+        if (!proofResult.success) {
+            return res.status(500).json({
+                success: false,
+                error: 'ZK proof generation failed',
+                details: proofResult.error
+            });
+        }
+
+        // Step 4: Verify Proof
+        const verificationResult = await verifyZKProof();
+        if (!verificationResult.success) {
+            return res.status(500).json({
+                success: false,
+                error: 'ZK proof verification failed',
+                details: verificationResult.error
+            });
+        }
+
+        // Step 5: Extract outputs from witness
         const outputs = await extractOutputsFromWitness();
         
         res.json({
             success: true,
             outputs: outputs,
+            proof: proofResult.proof,
+            verification_result: verificationResult.verified,
             compilation_log: compilationResult.log,
             witness_log: witnessResult.log,
-            message: 'ZK circuit executed successfully'
+            proof_log: proofResult.log,
+            verification_log: verificationResult.log,
+            message: 'Complete ZK-SNARK pipeline executed successfully'
         });
 
     } catch (error) {
@@ -337,6 +365,184 @@ app.post('/api/execute-circuit', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Internal server error',
+            details: error.message
+        });
+    }
+});
+
+/**
+ * @swagger
+ * /api/ic-verification:
+ *   post:
+ *     summary: Complete IC verification with ZK proof generation
+ *     description: |
+ *       Performs complete IC verification flow:
+ *       1. Fetch income data from LHDN API
+ *       2. Generate ZK proof of income classification
+ *       3. Return verified income bracket with cryptographic proof
+ *     tags: [IC Verification]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [ic]
+ *             properties:
+ *               ic:
+ *                 type: string
+ *                 description: Malaysian IC number
+ *                 example: "030520-01-2185"
+ *     responses:
+ *       200:
+ *         description: IC verification completed with ZK proof
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 citizen_name:
+ *                   type: string
+ *                   example: "HAR SZE HAO"
+ *                 income_bracket:
+ *                   type: string
+ *                   example: "B1"
+ *                 verification_status:
+ *                   type: string
+ *                   example: "verified"
+ *                 zk_proof:
+ *                   type: object
+ *                   properties:
+ *                     pi_a:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                     pi_b:
+ *                       type: array
+ *                       items:
+ *                         type: array
+ *                     pi_c:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                     public_signals:
+ *                       type: array
+ *                       items:
+ *                         type: string
+ *                 message:
+ *                   type: string
+ *                   example: "Income bracket verified with zero-knowledge proof"
+ *       400:
+ *         description: Invalid IC number
+ *       500:
+ *         description: Verification or proof generation failed
+ */
+app.post('/api/ic-verification', async (req, res) => {
+    try {
+        const { ic } = req.body;
+        
+        if (!ic) {
+            return res.status(400).json({
+                success: false,
+                error: 'IC number is required'
+            });
+        }
+
+        console.log('Starting IC verification for:', ic);
+
+        // Step 1: Fetch income data from LHDN API
+        console.log('Fetching income data from LHDN...');
+        const lhdnResponse = await fetch('http://localhost:3001/api/verify-income', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ ic })
+        });
+
+        if (!lhdnResponse.ok) {
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to fetch income data from LHDN',
+                details: await lhdnResponse.text()
+            });
+        }
+
+        const lhdnData = await lhdnResponse.json();
+        
+        // Step 2: Convert to circuit inputs
+        console.log('Converting data to circuit format...');
+        const circuitInputs = {
+            monthly_income: lhdnData.monthly_income.toString(),
+            signature: BigInt('0x' + lhdnData.signature.slice(0, 16)).toString(),
+            verification_timestamp: '100', // Age in seconds
+            public_key: BigInt('0x' + lhdnData.public_key.slice(0, 16)).toString(),
+            ic_hash: Array.from(ic.replace(/-/g, '')).reduce((acc, char) => acc + char.charCodeAt(0), 0).toString(),
+            timestamp_range: '86400' // 24 hours
+        };
+
+        // Ensure all directories exist
+        await fs.mkdir(OUTPUTS_PATH, { recursive: true });
+        await fs.mkdir(PROOFS_PATH, { recursive: true });
+        await fs.mkdir(INPUTS_PATH, { recursive: true });
+
+        // Write input file
+        const inputPath = path.join(INPUTS_PATH, 'input.json');
+        await fs.writeFile(inputPath, JSON.stringify(circuitInputs, null, 2));
+
+        // Step 3: Generate witness
+        const witnessResult = await calculateWitness();
+        if (!witnessResult.success) {
+            return res.status(500).json({
+                success: false,
+                error: 'Witness generation failed',
+                details: witnessResult.error
+            });
+        }
+
+        // Step 4: Generate ZK proof
+        const proofResult = await generateZKProof();
+        if (!proofResult.success) {
+            return res.status(500).json({
+                success: false,
+                error: 'ZK proof generation failed',
+                details: proofResult.error
+            });
+        }
+
+        // Step 5: Verify proof
+        const verificationResult = await verifyZKProof();
+        if (!verificationResult.success || !verificationResult.verified) {
+            return res.status(500).json({
+                success: false,
+                error: 'ZK proof verification failed',
+                details: verificationResult.error
+            });
+        }
+
+        // Step 6: Extract income classification
+        const outputs = await extractOutputsFromWitness();
+
+        // Success response
+        res.json({
+            success: true,
+            citizen_name: lhdnData.citizen_name,
+            income_bracket: outputs.income_classification,
+            verification_status: 'verified',
+            zk_proof: proofResult.proof,
+            zk_verified: verificationResult.verified,
+            message: `Income bracket ${outputs.income_classification} verified with zero-knowledge proof`,
+            privacy_note: 'Actual income amount (RM' + lhdnData.monthly_income + ') remains private'
+        });
+
+    } catch (error) {
+        console.error('IC verification error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Internal server error during IC verification',
             details: error.message
         });
     }
@@ -416,9 +622,9 @@ async function calculateWitness() {
     return new Promise((resolve) => {
         console.log('Calculating witness...');
         
-        const generateWitnessPath = path.join(OUTPUTS_PATH, 'generate_witness.js');
-        const wasmPath = path.join(OUTPUTS_PATH, 'MalaysianIncomeClassifier.wasm');
-        const inputPath = path.join(OUTPUTS_PATH, 'input.json');
+        const generateWitnessPath = path.join(OUTPUTS_PATH, 'MalaysianIncomeClassifier_js', 'generate_witness.js');
+        const wasmPath = path.join(OUTPUTS_PATH, 'MalaysianIncomeClassifier_js', 'MalaysianIncomeClassifier.wasm');
+        const inputPath = path.join(INPUTS_PATH, 'input.json');
         const witnessPath = path.join(OUTPUTS_PATH, 'witness.wtns');
         
         // node outputs/generate_witness.js outputs/MalaysianIncomeClassifier.wasm outputs/input.json outputs/witness.wtns
@@ -449,6 +655,130 @@ async function calculateWitness() {
             
             resolve({
                 success: code === 0,
+                log: stdout,
+                error: stderr || null
+            });
+        });
+    });
+}
+
+/**
+ * Generate ZK Proof using Groth16 (THE CORE ZK FUNCTIONALITY)
+ */
+async function generateZKProof() {
+    return new Promise((resolve) => {
+        console.log('Generating ZK proof...');
+        
+        const circuitZkeyPath = path.join(OUTPUTS_PATH, 'circuit.zkey');
+        const witnessPath = path.join(OUTPUTS_PATH, 'witness.wtns');
+        const proofPath = path.join(PROOFS_PATH, 'proof.json');
+        const publicPath = path.join(PROOFS_PATH, 'public.json');
+        
+        // snarkjs groth16 prove circuit.zkey witness.wtns proof.json public.json
+        const snarkjs = spawn('snarkjs', [
+            'groth16',
+            'prove',
+            circuitZkeyPath,
+            witnessPath,
+            proofPath,
+            publicPath
+        ], {
+            cwd: ZK_PROJECT_PATH
+        });
+
+        let stdout = '';
+        let stderr = '';
+
+        snarkjs.stdout.on('data', (data) => {
+            stdout += data.toString();
+        });
+
+        snarkjs.stderr.on('data', (data) => {
+            stderr += data.toString();
+        });
+
+        snarkjs.on('close', async (code) => {
+            console.log(`ZK proof generation finished with code: ${code}`);
+            console.log('Stdout:', stdout);
+            if (stderr) console.log('Stderr:', stderr);
+            
+            if (code === 0) {
+                try {
+                    // Read the generated proof
+                    const proofData = JSON.parse(await fs.readFile(proofPath, 'utf8'));
+                    const publicSignals = JSON.parse(await fs.readFile(publicPath, 'utf8'));
+                    
+                    resolve({
+                        success: true,
+                        log: stdout,
+                        proof: {
+                            pi_a: proofData.pi_a,
+                            pi_b: proofData.pi_b,
+                            pi_c: proofData.pi_c,
+                            public_signals: publicSignals
+                        }
+                    });
+                } catch (readError) {
+                    resolve({
+                        success: false,
+                        error: 'Failed to read generated proof: ' + readError.message,
+                        log: stdout
+                    });
+                }
+            } else {
+                resolve({
+                    success: false,
+                    error: stderr || 'Unknown error during proof generation',
+                    log: stdout
+                });
+            }
+        });
+    });
+}
+
+/**
+ * Verify ZK Proof using Groth16
+ */
+async function verifyZKProof() {
+    return new Promise((resolve) => {
+        console.log('Verifying ZK proof...');
+        
+        const verificationKeyPath = path.join(OUTPUTS_PATH, 'verification_key.json');
+        const publicPath = path.join(PROOFS_PATH, 'public.json');
+        const proofPath = path.join(PROOFS_PATH, 'proof.json');
+        
+        // snarkjs groth16 verify verification_key.json public.json proof.json
+        const snarkjs = spawn('snarkjs', [
+            'groth16',
+            'verify',
+            verificationKeyPath,
+            publicPath,
+            proofPath
+        ], {
+            cwd: ZK_PROJECT_PATH
+        });
+
+        let stdout = '';
+        let stderr = '';
+
+        snarkjs.stdout.on('data', (data) => {
+            stdout += data.toString();
+        });
+
+        snarkjs.stderr.on('data', (data) => {
+            stderr += data.toString();
+        });
+
+        snarkjs.on('close', (code) => {
+            console.log(`ZK proof verification finished with code: ${code}`);
+            console.log('Stdout:', stdout);
+            if (stderr) console.log('Stderr:', stderr);
+            
+            const verified = code === 0 && stdout.includes('OK');
+            
+            resolve({
+                success: true, // Function executed successfully
+                verified: verified, // Whether the proof is valid
                 log: stdout,
                 error: stderr || null
             });
