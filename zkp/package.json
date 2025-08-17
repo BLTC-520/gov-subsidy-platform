@@ -1,0 +1,18 @@
+{
+  "name": "gov-subsidy-zk-circuits",
+  "version": "1.0.0",
+  "description": "Zero-knowledge circuits for income verification with digital signatures",
+  "main": "index.js",
+  "scripts": {
+    "setup": "./setup.sh",
+    "compile": "circom circuits/MalaysianIncomeClassifier.circom --r1cs --wasm --sym -o outputs/",
+    "test": "node examples/signature-verification-demo.js"
+  },
+  "dependencies": {
+    "circomlib": "^2.0.5"
+  },
+  "devDependencies": {},
+  "keywords": ["circom", "zk", "zero-knowledge", "income-verification"],
+  "author": "",
+  "license": "MIT"
+}

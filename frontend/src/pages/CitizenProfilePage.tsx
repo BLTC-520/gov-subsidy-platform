@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { CitizenLayout } from '../components/common/CitizenLayout';
 import { CountdownTimer } from '../components/common/CountdownTimer';
+import { IncomeVerificationField } from '../components/zk/IncomeVerificationField';
 import { useDeadlineStatus } from '../hooks/useDeadlineStatus';
 import { useProfile } from '../hooks/useProfile';
+import { useICVerification } from '../hooks/useICVerification';
 import type { ProfileFormData } from '../hooks/useProfile';
 
 const MALAYSIAN_STATES = [
@@ -17,11 +19,13 @@ const GENDER_OPTIONS = ['Male', 'Female'];
 export default function CitizenProfilePage() {
   const { profile, loading, error, updateProfile, validateFormData } = useProfile();
   const { isExpired, deadline } = useDeadlineStatus();
+  const { verificationData, lookupCitizenName } = useICVerification();
   const [formData, setFormData] = useState<ProfileFormData>({});
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [realTimeExpired, setRealTimeExpired] = useState(false);
+  const [icNumber, setIcNumber] = useState('');
 
   // Initialize form data when profile loads
   useEffect(() => {
@@ -39,6 +43,27 @@ export default function CitizenProfilePage() {
       });
     }
   }, [profile]);
+
+  // Auto-lookup citizen name when IC is entered
+  useEffect(() => {
+    if (icNumber && icNumber.length >= 12 && !verificationData.citizenName) {
+      // Debounce name lookup
+      const timer = setTimeout(() => {
+        lookupCitizenName(icNumber);
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [icNumber, lookupCitizenName, verificationData.citizenName]);
+
+  // Update form data when citizen name is found
+  useEffect(() => {
+    if (verificationData.citizenName) {
+      setFormData(prev => ({
+        ...prev,
+        full_name: verificationData.citizenName
+      }));
+    }
+  }, [verificationData.citizenName]);
 
   // Real-time deadline checking
   useEffect(() => {
@@ -185,6 +210,26 @@ export default function CitizenProfilePage() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Personal Details */}
+            {/* IC Number Input (New Field) */}
+            <div className="mb-6">
+              <label htmlFor="ic_number" className="block text-sm font-medium text-gray-700 mb-2">
+                Malaysian IC Number *
+              </label>
+              <input
+                type="text"
+                id="ic_number"
+                value={icNumber}
+                onChange={(e) => setIcNumber(e.target.value)}
+                disabled={isExpired || realTimeExpired}
+                placeholder="030520-01-2185"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                required
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                Enter your IC number to automatically verify your income bracket using zero-knowledge proofs
+              </p>
+            </div>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 mb-2">
@@ -195,10 +240,15 @@ export default function CitizenProfilePage() {
                   id="full_name"
                   value={formData.full_name || ''}
                   onChange={(e) => handleInputChange('full_name', e.target.value)}
-                  disabled={isExpired || realTimeExpired}
+                  disabled={isExpired || realTimeExpired || !!verificationData.citizenName}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                   required
                 />
+                {verificationData.citizenName && (
+                  <p className="mt-1 text-xs text-green-600">
+                    ✓ Auto-filled from IC lookup
+                  </p>
+                )}
               </div>
 
               <div>
@@ -255,24 +305,18 @@ export default function CitizenProfilePage() {
               </div>
             </div>
 
+            {/* ZK Income Verification */}
+            <IncomeVerificationField
+              icNumber={icNumber}
+              onVerificationComplete={(data) => {
+                // Store the verification result but don't expose actual income
+                console.log('Income verification completed:', data);
+              }}
+              disabled={isExpired || realTimeExpired}
+            />
+
             {/* Financial Information */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div>
-                <label htmlFor="monthly_income" className="block text-sm font-medium text-gray-700 mb-2">
-                  Monthly Income (RM) *
-                </label>
-                <input
-                  type="number"
-                  id="monthly_income"
-                  value={formData.monthly_income || ''}
-                  onChange={(e) => handleInputChange('monthly_income', parseFloat(e.target.value))}
-                  disabled={isExpired || realTimeExpired}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
-                  min="0"
-                  step="0.01"
-                  required
-                />
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
 
               <div>
                 <label htmlFor="household_size" className="block text-sm font-medium text-gray-700 mb-2">

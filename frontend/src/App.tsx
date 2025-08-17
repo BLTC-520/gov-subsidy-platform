@@ -6,6 +6,7 @@ import CitizenProfilePage from './pages/CitizenProfilePage';
 import ProfilePage from './pages/ProfilePage';
 import CitizenClaimPage from './pages/CitizenClaimPage';
 import FileUploadPage from './pages/FileUploadPage';
+import ZKDemoPage from './pages/ZKDemoPage';
 import { RouteGuard } from './components/auth/RouteGuard';
 
 function App() {
@@ -38,6 +39,11 @@ function App() {
         <Route path="/citizen/claim" element={
           <RouteGuard requiredRole="citizen">
             <CitizenClaimPage />
+          </RouteGuard>
+        } />
+        <Route path="/citizen/zk-demo" element={
+          <RouteGuard requiredRole="citizen">
+            <ZKDemoPage />
           </RouteGuard>
         } />
       </Routes>
