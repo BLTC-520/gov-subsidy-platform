@@ -296,7 +296,7 @@ app.post('/api/execute-circuit', async (req, res) => {
             public_key_preview: circuitInputs.public_key?.substring(0, 20) + '...'
         });
 
-        // Ensure all directories exist
+        // check if the path is exist, if not, 'mkdir' -> make dir
         await fs.mkdir(OUTPUTS_PATH, { recursive: true });
         await fs.mkdir(PROOFS_PATH, { recursive: true });
         await fs.mkdir(INPUTS_PATH, { recursive: true });
@@ -475,14 +475,35 @@ app.post('/api/ic-verification', async (req, res) => {
         
         // Step 2: Convert to circuit inputs
         console.log('Converting data to circuit format...');
+        
+        // Calculate actual timestamp age for anti-replay protection
+        const now = Date.now(); // current system time in ms
+        const verificationTime = new Date(lhdnData.verification_timestamp).getTime(); // ms
+        const ageInSeconds = Math.floor((now - verificationTime) / 1000); // age in seconds
+        
+        console.log(`LHDN verification timestamp: ${lhdnData.verification_timestamp}`);
+        console.log(`Current time: ${new Date(now).toISOString()}`);
+        console.log(`Data age: ${ageInSeconds} seconds (${Math.floor(ageInSeconds/60)} minutes)`);
+        
         const circuitInputs = {
             monthly_income: lhdnData.monthly_income.toString(),
             signature: BigInt('0x' + lhdnData.signature.slice(0, 16)).toString(),
-            verification_timestamp: '100', // Age in seconds
+            verification_timestamp: ageInSeconds.toString(), // ← actual age in seconds
             public_key: BigInt('0x' + lhdnData.public_key.slice(0, 16)).toString(),
             ic_hash: Array.from(ic.replace(/-/g, '')).reduce((acc, char) => acc + char.charCodeAt(0), 0).toString(),
-            timestamp_range: '86400' // 24 hours
+            timestamp_range: (24 * 60 * 60).toString() // ← 24h = 86400 seconds
         };
+        
+        // Validate timestamp before proceeding
+        if (ageInSeconds > (24 * 60 * 60)) {
+            return res.status(400).json({
+                success: false,
+                error: 'Verification data is too old',
+                details: `Data is ${Math.floor(ageInSeconds/3600)} hours old. Maximum allowed: 24 hours.`
+            });
+        }
+        
+        console.log('Timestamp validation passed - data is fresh');
 
         // Ensure all directories exist
         await fs.mkdir(OUTPUTS_PATH, { recursive: true });
@@ -493,7 +514,17 @@ app.post('/api/ic-verification', async (req, res) => {
         const inputPath = path.join(INPUTS_PATH, 'input.json');
         await fs.writeFile(inputPath, JSON.stringify(circuitInputs, null, 2));
 
-        // Step 3: Generate witness
+        // Step 3: Compile circuit if needed
+        const compilationResult = await compileCircuit();
+        if (!compilationResult.success) {
+            return res.status(500).json({
+                success: false,
+                error: 'Circuit compilation failed',
+                details: compilationResult.error
+            });
+        }
+
+        // Step 4: Generate witness
         const witnessResult = await calculateWitness();
         if (!witnessResult.success) {
             return res.status(500).json({
@@ -503,7 +534,7 @@ app.post('/api/ic-verification', async (req, res) => {
             });
         }
 
-        // Step 4: Generate ZK proof
+        // Step 5: Generate ZK proof
         const proofResult = await generateZKProof();
         if (!proofResult.success) {
             return res.status(500).json({
@@ -513,7 +544,7 @@ app.post('/api/ic-verification', async (req, res) => {
             });
         }
 
-        // Step 5: Verify proof
+        // Step 6: Verify proof
         const verificationResult = await verifyZKProof();
         if (!verificationResult.success || !verificationResult.verified) {
             return res.status(500).json({
@@ -523,7 +554,7 @@ app.post('/api/ic-verification', async (req, res) => {
             });
         }
 
-        // Step 6: Extract income classification
+        // Step 7: Extract income classification
         const outputs = await extractOutputsFromWitness();
 
         // Success response
@@ -558,6 +589,13 @@ async function compileCircuit() {
         const circuitFile = path.join(CIRCUITS_PATH, 'MalaysianIncomeClassifier.circom');
         const outputDir = OUTPUTS_PATH;
         
+        // exact way to compile a circuit
+        // --r1cs (Rank 1 Constraint System) 
+        // https://rareskills.io/post/rank-1-constraint-system
+        // --wasm: web assembly format 
+        // --sym: file that store symbol information
+        // -o: which [path] to output
+
         // circom MalaysianIncomeClassifier.circom --r1cs --wasm --sym -o outputs/ -l node_modules
         const circom = spawn('circom', [
             circuitFile,
@@ -573,12 +611,19 @@ async function compileCircuit() {
         let stdout = '';
         let stderr = '';
 
+        // handling output
         circom.stdout.on('data', (data) => {
             stdout += data.toString();
+            console.log(`stdout: ${data}`);
         });
 
         circom.stderr.on('data', (data) => {
             stderr += data.toString();
+            console.log(`stderr: ${data}`);
+        });
+
+        circom.on('error', (err) => {
+          reject({success: false, error: err.message});
         });
 
         circom.on('close', async (code) => {
@@ -587,23 +632,11 @@ async function compileCircuit() {
             if (stderr) console.log('Stderr:', stderr);
             
             if (code === 0) {
-                // Move WASM files from subdirectory to main outputs folder
-                try {
-                    const srcDir = path.join(OUTPUTS_PATH, 'MalaysianIncomeClassifier_js');
-                    const wasmSrc = path.join(srcDir, 'MalaysianIncomeClassifier.wasm');
-                    const jsSrc = path.join(srcDir, 'generate_witness.js');
-                    
-                    const wasmDest = path.join(OUTPUTS_PATH, 'MalaysianIncomeClassifier.wasm');
-                    const jsDest = path.join(OUTPUTS_PATH, 'generate_witness.js');
-                    
-                    // Copy files to main outputs directory
-                    await fs.copyFile(wasmSrc, wasmDest);
-                    await fs.copyFile(jsSrc, jsDest);
-                    
-                    console.log('WASM files moved to outputs/ directory');
-                } catch (moveError) {
-                    console.log('Warning: Could not move WASM files:', moveError.message);
-                }
+                console.log('Circuit compiled successfully - files available in MalaysianIncomeClassifier_js/ subdirectory');
+                console.log('Starting trusted setup (generating proving keys)...');
+                
+                // Generate proving key (trusted setup)
+                await performTrustedSetup();
             }
             
             resolve({
@@ -616,12 +649,115 @@ async function compileCircuit() {
 }
 
 /**
+ * Perform trusted setup - generate proving and verification keys
+ */
+async function performTrustedSetup() {
+    console.log('Performing trusted setup...');
+    
+    const r1csPath = path.join(OUTPUTS_PATH, 'MalaysianIncomeClassifier.r1cs');
+    const ptauPath = path.join(OUTPUTS_PATH, 'pot12.ptau');
+    const zkeyPath = path.join(OUTPUTS_PATH, 'circuit.zkey');
+    const vkeyPath = path.join(OUTPUTS_PATH, 'verification_key.json');
+    
+    // Check if proving key already exists
+    try {
+        await fs.access(zkeyPath);
+        console.log('Proving key already exists, skipping setup');
+        return;
+    } catch {
+        // File doesn't exist, proceed with setup
+    }
+    
+    // Download Powers of Tau if not exists
+    try {
+        await fs.access(ptauPath);
+        console.log('Powers of Tau file exists');
+    } catch {
+        console.log('Downloading Powers of Tau file...');
+        // For now, use a smaller ceremony (2^12 = 4096 constraints)
+        const response = await fetch('https://storage.googleapis.com/zkevm/ptau/powersOfTau28_hez_final_12.ptau');
+        if (!response.ok) {
+            throw new Error('Failed to download Powers of Tau');
+        }
+        const buffer = await response.arrayBuffer();
+        await fs.writeFile(ptauPath, Buffer.from(buffer));
+        console.log('Powers of Tau downloaded successfully');
+    }
+    
+    // Generate proving key
+    return new Promise((resolve) => {
+        console.log('Generating proving key...');
+        
+        const snarkjs = spawn('snarkjs', [
+            'groth16',
+            'setup',
+            r1csPath,
+            ptauPath,
+            zkeyPath
+        ], {
+            cwd: ZK_PROJECT_PATH
+        });
+
+        let stdout = '';
+        let stderr = '';
+
+        snarkjs.stdout.on('data', (data) => {
+            stdout += data.toString();
+            console.log(`Setup stdout: ${data}`);
+        });
+
+        snarkjs.stderr.on('data', (data) => {
+            stderr += data.toString();
+            console.log(`Setup stderr: ${data}`);
+        });
+
+        snarkjs.on('close', async (code) => {
+            console.log(`Trusted setup finished with code: ${code}`);
+            
+            if (code === 0) {
+                // Export verification key
+                const vkeyProcess = spawn('snarkjs', [
+                    'zkey',
+                    'export',
+                    'verificationkey',
+                    zkeyPath,
+                    vkeyPath
+                ], {
+                    cwd: ZK_PROJECT_PATH
+                });
+                
+                vkeyProcess.on('close', (vkeyCode) => {
+                    if (vkeyCode === 0) {
+                        console.log('✅ Trusted setup completed successfully');
+                    } else {
+                        console.log('❌ Verification key export failed');
+                    }
+                    resolve();
+                });
+            } else {
+                console.log('❌ Trusted setup failed');
+                resolve();
+            }
+        });
+    });
+}
+
+/**
  * Calculate witness using snarkjs
  */
 async function calculateWitness() {
     return new Promise((resolve) => {
         console.log('Calculating witness...');
         
+        /* (After compileCircuit() function...)
+          /Users/brianhar/Documents/gov-subsidy-platform/zkp/outputs/
+          ├── MalaysianIncomeClassifier.r1cs
+          ├── MalaysianIncomeClassifier.sym
+          └── MalaysianIncomeClassifier_js/
+              ├── MalaysianIncomeClassifier.wasm
+              ├── generate_witness.js
+              └── witness_calculator.js
+        */
         const generateWitnessPath = path.join(OUTPUTS_PATH, 'MalaysianIncomeClassifier_js', 'generate_witness.js');
         const wasmPath = path.join(OUTPUTS_PATH, 'MalaysianIncomeClassifier_js', 'MalaysianIncomeClassifier.wasm');
         const inputPath = path.join(INPUTS_PATH, 'input.json');
@@ -646,6 +782,10 @@ async function calculateWitness() {
 
         node.stderr.on('data', (data) => {
             stderr += data.toString();
+        });
+
+        node.on('error', (err) => {
+            resolve({success: false, error: err.message});
         });
 
         node.on('close', (code) => {
@@ -858,6 +998,103 @@ async function extractOutputsFromWitness() {
         throw error;
     }
 }
+
+/**
+ * @swagger
+ * /api/lookup-citizen:
+ *   post:
+ *     summary: Simple citizen name lookup by IC number
+ *     description: Fetch citizen name from LHDN database using IC number. No ZK verification - just name lookup.
+ *     tags: [IC Lookup]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [ic]
+ *             properties:
+ *               ic:
+ *                 type: string
+ *                 description: Malaysian IC number
+ *                 example: "030520-01-2185"
+ *     responses:
+ *       200:
+ *         description: Citizen found and name retrieved
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 citizen_name:
+ *                   type: string
+ *                   example: "HAR SZE HAO"
+ *                 ic:
+ *                   type: string
+ *                   example: "030520-01-2185"
+ *       404:
+ *         description: Citizen not found in LHDN database
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: false
+ *                 error:
+ *                   type: string
+ *                   example: "Citizen not found"
+ */
+app.post('/api/lookup-citizen', async (req, res) => {
+    try {
+        const { ic } = req.body;
+        
+        if (!ic) {
+            return res.status(400).json({
+                success: false,
+                error: 'IC number is required'
+            });
+        }
+
+        console.log('Looking up citizen name for IC:', ic);
+
+        // Simple call to LHDN API to get citizen data
+        const lhdnResponse = await fetch('http://localhost:3001/api/verify-income', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ ic })
+        });
+
+        if (!lhdnResponse.ok) {
+            return res.status(404).json({
+                success: false,
+                error: 'Citizen not found'
+            });
+        }
+
+        const lhdnData = await lhdnResponse.json();
+        
+        // Return just the basic citizen info
+        res.json({
+            success: true,
+            citizen_name: lhdnData.citizen_name,
+            ic: ic
+        });
+
+    } catch (error) {
+        console.error('Citizen lookup error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Internal server error during lookup'
+        });
+    }
+});
 
 /**
  * @swagger

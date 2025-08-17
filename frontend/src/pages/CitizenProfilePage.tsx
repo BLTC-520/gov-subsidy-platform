@@ -19,7 +19,7 @@ const GENDER_OPTIONS = ['Male', 'Female'];
 export default function CitizenProfilePage() {
   const { profile, loading, error, updateProfile, validateFormData } = useProfile();
   const { isExpired, deadline } = useDeadlineStatus();
-  const { verificationData, verifyIC } = useICVerification();
+  const { verificationData, lookupCitizenName } = useICVerification();
   const [formData, setFormData] = useState<ProfileFormData>({});
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -44,26 +44,26 @@ export default function CitizenProfilePage() {
     }
   }, [profile]);
 
-  // Auto-verify IC when it's entered
+  // Auto-lookup citizen name when IC is entered
   useEffect(() => {
     if (icNumber && icNumber.length >= 12 && !verificationData.citizenName) {
-      // Debounce IC verification
+      // Debounce name lookup
       const timer = setTimeout(() => {
-        verifyIC(icNumber);
+        lookupCitizenName(icNumber);
       }, 1000);
       return () => clearTimeout(timer);
     }
-  }, [icNumber, verifyIC, verificationData.citizenName]);
+  }, [icNumber, lookupCitizenName, verificationData.citizenName]);
 
-  // Update form data when verification completes
+  // Update form data when citizen name is found
   useEffect(() => {
-    if (verificationData.verificationStatus === 'verified') {
+    if (verificationData.citizenName) {
       setFormData(prev => ({
         ...prev,
-        full_name: verificationData.citizenName || prev.full_name
+        full_name: verificationData.citizenName
       }));
     }
-  }, [verificationData]);
+  }, [verificationData.citizenName]);
 
   // Real-time deadline checking
   useEffect(() => {
@@ -240,13 +240,13 @@ export default function CitizenProfilePage() {
                   id="full_name"
                   value={formData.full_name || ''}
                   onChange={(e) => handleInputChange('full_name', e.target.value)}
-                  disabled={isExpired || realTimeExpired || verificationData.verificationStatus === 'verified'}
+                  disabled={isExpired || realTimeExpired || !!verificationData.citizenName}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                   required
                 />
-                {verificationData.verificationStatus === 'verified' && (
+                {verificationData.citizenName && (
                   <p className="mt-1 text-xs text-green-600">
-                    ✓ Auto-filled from IC verification
+                    ✓ Auto-filled from IC lookup
                   </p>
                 )}
               </div>

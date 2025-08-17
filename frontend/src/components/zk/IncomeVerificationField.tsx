@@ -1,7 +1,5 @@
 import { useState } from 'react';
 import { ZKVerificationBadge } from './ZKVerificationBadge';
-import ZKProofExplainer from './ZKProofExplainer';
-import ZKProcessFlow from './ZKProcessFlow';
 
 interface IncomeVerificationFieldProps {
   icNumber: string;
@@ -31,8 +29,6 @@ export function IncomeVerificationField({
   const [verificationStatus, setVerificationStatus] = useState<'unverified' | 'loading' | 'verified' | 'error'>('unverified');
   const [verificationData, setVerificationData] = useState<ZKVerificationResult | null>(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
-  const [showTechnicalDetails, setShowTechnicalDetails] = useState<boolean>(false);
-  const [showProcessFlow, setShowProcessFlow] = useState<boolean>(false);
 
   const handleVerifyIncome = async () => {
     if (!icNumber || icNumber.length < 10) {
@@ -151,74 +147,6 @@ export function IncomeVerificationField({
         )}
       </div>
 
-      {/* Educational ZK explanations */}
-      {verificationStatus === 'verified' && verificationData?.zk_proof && (
-        <div className="space-y-4 border-t border-gray-200 pt-4">
-          <div className="text-center">
-            <h3 className="text-lg font-semibold text-gray-800 mb-3">
-              🎓 Understanding Zero-Knowledge Proofs
-            </h3>
-            <p className="text-sm text-gray-600 mb-4">
-              Learn how we verified your income bracket without seeing your actual salary!
-            </p>
-          </div>
-
-          {/* Toggle buttons */}
-          <div className="flex flex-col sm:flex-row gap-2">
-            <button
-              onClick={() => {
-                setShowProcessFlow(!showProcessFlow);
-                setShowTechnicalDetails(false);
-              }}
-              className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                showProcessFlow 
-                  ? 'bg-blue-600 text-white' 
-                  : 'bg-blue-100 text-blue-700 hover:bg-blue-200'
-              }`}
-            >
-              {showProcessFlow ? '✓ ' : ''}How It Works (Step-by-Step)
-            </button>
-            
-            <button
-              onClick={() => {
-                setShowTechnicalDetails(!showTechnicalDetails);
-                setShowProcessFlow(false);
-              }}
-              className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                showTechnicalDetails 
-                  ? 'bg-green-600 text-white' 
-                  : 'bg-green-100 text-green-700 hover:bg-green-200'
-              }`}
-            >
-              {showTechnicalDetails ? '✓ ' : ''}Technical Details (π_a, π_b, π_c)
-            </button>
-          </div>
-
-          {/* Educational content */}
-          {showProcessFlow && (
-            <ZKProcessFlow className="animate-in slide-in-from-top-2 duration-300" />
-          )}
-          
-          <ZKProofExplainer
-            proof={verificationData.zk_proof}
-            isVisible={showTechnicalDetails}
-          />
-
-          {(showProcessFlow || showTechnicalDetails) && (
-            <div className="mt-4 text-center">
-              <button
-                onClick={() => {
-                  setShowProcessFlow(false);
-                  setShowTechnicalDetails(false);
-                }}
-                className="text-sm text-gray-500 hover:text-gray-700 underline"
-              >
-                Hide Educational Content
-              </button>
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }

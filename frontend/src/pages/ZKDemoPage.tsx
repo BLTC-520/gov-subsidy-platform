@@ -23,6 +23,7 @@ export default function ZKDemoPage() {
   const [demoRunning, setDemoRunning] = useState(false);
   const [selectedIC, setSelectedIC] = useState('030520-01-2185');
   const [apiResponse, setApiResponse] = useState<APIResponse | null>(null);
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
   const [steps, setSteps] = useState<DemoStep[]>([
     {
       id: 1,
@@ -403,22 +404,103 @@ export default function ZKDemoPage() {
           </div>
         </div>
 
+        {/* Live Demo Recording */}
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-semibold text-gray-900 mb-4">Live Demo Recording</h3>
+          <p className="text-gray-600 mb-4">
+            Watch the complete ZK-SNARK verification process in action, from citizen IC input to final income bracket proof generation.
+          </p>
+          
+          {/* Demo GIF */}
+          <div className="relative group mb-4">
+            <img 
+              src="/assets/zkRun.gif" 
+              alt="ZK-SNARK Income Verification Live Demo" 
+              className="w-full h-auto rounded-lg border border-gray-200 shadow-sm"
+            />
+            <div className="absolute bottom-4 right-4 bg-black bg-opacity-75 text-white px-3 py-2 rounded-md text-sm">
+              🎬 Live Demo Recording
+            </div>
+          </div>
+          
+          {/* Demo Highlights */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <h4 className="font-bold text-blue-800 mb-2">🔐 Privacy Preserved</h4>
+              <ul className="text-sm text-blue-700 space-y-1">
+                <li>• Actual income (RM7000) never revealed</li>
+                <li>• Only bracket classification (M2) shown</li>
+                <li>• Zero-knowledge proof generation</li>
+                <li>• Government verification without data access</li>
+              </ul>
+            </div>
+            
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+              <h4 className="font-bold text-green-800 mb-2">⚡ Real-Time Pipeline</h4>
+              <ul className="text-sm text-green-700 space-y-1">
+                <li>• Circuit compilation (~10 seconds)</li>
+                <li>• Trusted setup with Powers of Tau</li>
+                <li>• Witness generation (~2 seconds)</li>
+                <li>• Groth16 proof creation (~5 seconds)</li>
+              </ul>
+            </div>
+          </div>
+          
+          <div className="mt-4 p-4 bg-gray-50 rounded-lg">
+            <p className="text-sm text-gray-600">
+              <strong>Demo Flow:</strong> IC Input → LHDN API → ZK Circuit → Signature Verification → Income Classification → Cryptographic Proof → Government Verification
+            </p>
+          </div>
+        </div>
+
         {/* System Architecture */}
         <div className="bg-white rounded-lg shadow-md p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">System Architecture</h3>
-          <div className="bg-gray-50 rounded-lg p-4">
-            <div className="text-center text-sm text-gray-600 space-y-2">
-              <div>Citizen IC Input → Mock LHDN API → Signed Income Data</div>
-              <div>↓</div>
-              <div>ZK Circuit (Signature Verification + Income Classification)</div>
-              <div>↓</div>
-              <div>Zero-Knowledge Proof (Income Bracket + Signature Validity)</div>
-              <div>↓</div>
-              <div>Government Verification (No Access to Actual Income)</div>
+          
+          {/* Architecture Diagram */}
+          <div className="mb-6">
+            <div className="relative group">
+              <img 
+                src="/assets/zkArch.svg" 
+                alt="ZK-SNARK Income Verification Architecture" 
+                className="w-full h-auto rounded-lg border border-gray-200 shadow-sm cursor-pointer hover:shadow-lg transition-shadow duration-200"
+                onClick={() => setIsImageModalOpen(true)}
+              />
+              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none">
+                <div className="bg-black bg-opacity-50 text-white px-3 py-2 rounded-md text-sm">
+                  🔍 Click to enlarge
+                </div>
+              </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Image Magnification Modal */}
+      {isImageModalOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
+          onClick={() => setIsImageModalOpen(false)}
+        >
+          <div className="relative max-w-full max-h-full">
+            <img 
+              src="/assets/zkArch.svg" 
+              alt="ZK-SNARK Income Verification Architecture - Enlarged" 
+              className="max-w-full max-h-full object-contain rounded-lg"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <button
+              className="absolute top-4 right-4 bg-white bg-opacity-90 hover:bg-opacity-100 text-gray-800 rounded-full w-10 h-10 flex items-center justify-center text-xl font-bold transition-all duration-200"
+              onClick={() => setIsImageModalOpen(false)}
+            >
+              ×
+            </button>
+            <div className="absolute bottom-4 left-4 bg-black bg-opacity-75 text-white px-3 py-2 rounded-md text-sm">
+              Click anywhere to close | Scroll to zoom
+            </div>
+          </div>
+        </div>
+      )}
     </CitizenLayout>
   );
 }

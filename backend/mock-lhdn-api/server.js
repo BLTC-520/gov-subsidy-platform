@@ -206,7 +206,7 @@ console.log('Mock LHDN Public Key:', MOCK_PUBLIC_KEY);
 // Mock citizen database - simulates LHDN's citizen income records
 // Key: IC number (without hyphens), Value: income and name data
 const mockCitizensData = {
-  '030520012185': { income: 1800, name: 'HAR SZE HAO' },       // B40_LOW category
+  '030520012185': { income: 7000, name: 'HAR SZE HAO' },       // B40_LOW category
   '030322016289': { income: 2350, name: 'PANG ZHAN HUANG' }   // B40_HIGH category
 };
 

@@ -27,6 +27,38 @@ export function useICVerification() {
     verificationStatus: 'unverified'
   });
 
+  // Simple name lookup (no ZK verification)
+  const lookupCitizenName = useCallback(async (icNumber: string): Promise<string> => {
+    try {
+      console.log('Looking up citizen name for IC:', icNumber);
+
+      const response = await fetch('http://localhost:3002/api/lookup-citizen', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ ic: icNumber }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        // Update only the citizen name, keep verification status as unverified
+        setVerificationData(prev => ({
+          ...prev,
+          citizenName: result.citizen_name
+        }));
+        return result.citizen_name;
+      } else {
+        console.log('Citizen not found in database');
+        return '';
+      }
+    } catch (error) {
+      console.log('Error looking up citizen:', error);
+      return '';
+    }
+  }, []);
+
   const verifyIC = useCallback(async (icNumber: string): Promise<ICVerificationData> => {
     // Reset and set loading state
     setVerificationData(prev => ({
@@ -93,6 +125,7 @@ export function useICVerification() {
   return {
     verificationData,
     verifyIC,
+    lookupCitizenName,
     resetVerification,
     isLoading: verificationData.verificationStatus === 'loading',
     isVerified: verificationData.verificationStatus === 'verified',
