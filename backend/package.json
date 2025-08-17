@@ -1,0 +1,22 @@
+{
+  "name": "gov-subsidy-zk-backend",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Backend service for ZK circuit execution",
+  "main": "zk-circuit-service.js",
+  "scripts": {
+    "start": "node zk-circuit-service.js",
+    "dev": "node --watch zk-circuit-service.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "swagger-jsdoc": "^6.2.8",
+    "swagger-ui-express": "^5.0.0"
+  },
+  "devDependencies": {},
+  "keywords": ["zk", "circom", "snarkjs", "zero-knowledge"],
+  "author": "",
+  "license": "MIT"
+}

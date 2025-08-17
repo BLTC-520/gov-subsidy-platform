@@ -85,7 +85,105 @@ Citizen --> CitizenUI : View Score / Connect Wallet
 | Frontend     | React or Next.js, Supabase UI             |
 | Auth & DB    | Supabase (Postgres + Auth)                |
 | Blockchain   | Solidity + HUFF + Foundry                 |
+| **ZK Proofs**| **Circom 2.1.5, snarkjs, Groth16**        |
 | Search Agent | SerpAPI or Tavily                         |
+
+---
+
+## 🔐 **COMPLETE GROTH16 ZK-SNARK IMPLEMENTATION**
+
+### **ZK Proof Pipeline (Production-Ready)**
+Reference script for complete Groth16 implementation:
+
+```bash
+#!/bin/bash
+# Complete ZK proof generation and verification pipeline
+set -e
+
+# Create output directories
+mkdir -p outputs proofs inputs
+
+# 1. Compile circuit
+circom circuits/MalaysianIncomeClassifier.circom --r1cs --wasm --sym -o outputs/ -l node_modules
+
+# 2. Download Powers of Tau (Universal Trusted Setup)
+if [ ! -f "outputs/pot12.ptau" ]; then
+    echo "Downloading Powers of Tau file (2^12 constraints)..."
+    wget https://storage.googleapis.com/zkevm/ptau/powersOfTau28_hez_final_12.ptau -O outputs/pot12.ptau
+fi
+
+# 3. Generate proving/verification keys (Circuit-Specific Setup)
+snarkjs groth16 setup outputs/MalaysianIncomeClassifier.r1cs outputs/pot12.ptau outputs/circuit.zkey
+
+# 4. Export verification key
+snarkjs zkey export verificationkey outputs/circuit.zkey outputs/verification_key.json
+
+# 5. Generate witness from inputs
+node outputs/MalaysianIncomeClassifier_js/generate_witness.js outputs/MalaysianIncomeClassifier_js/MalaysianIncomeClassifier.wasm inputs/input.json outputs/witness.wtns
+
+# 6. Generate ZK proof (THE CORE ZK STEP)
+snarkjs groth16 prove outputs/circuit.zkey outputs/witness.wtns proofs/proof.json proofs/public.json
+
+# 7. Verify proof (Independent verification without revealing private inputs)
+snarkjs groth16 verify outputs/verification_key.json proofs/public.json proofs/proof.json
+
+echo "✅ Complete ZK proof pipeline successful! Check proofs/public.json for verification!"
+```
+
+### **ZK System Architecture**
+```
+Citizen IC → LHDN API → Private Income → ZK Circuit → Public Proof
+                     (RM 2000 - HIDDEN)              (B1 bracket - PUBLIC)
+                           ↓
+                    ZK Proof Generation
+                    {π_a, π_b, π_c, public_signals}
+                           ↓
+                    Independent Verification
+                    (Verifier never sees actual income!)
+```
+
+### **Frontend Integration Pattern**
+```typescript
+// IC-triggered auto-verification flow
+const handleICVerification = async (ic: string) => {
+  setVerificationStatus('loading');
+  
+  // 1. Fetch signed income data from LHDN
+  const lhdnData = await fetchLHDNData(ic);
+  
+  // 2. Generate ZK proof of income bracket
+  const zkProof = await generateIncomeProof(lhdnData);
+  
+  // 3. Verify proof independently  
+  const isValid = await verifyProof(zkProof);
+  
+  // 4. Update UI with verified data
+  if (isValid) {
+    setIncomeStatus(`Proven ${zkProof.bracket} salary holder → ZK-SNARK ✅`);
+    setVerificationStatus('verified');
+  }
+};
+```
+
+### **Proof Storage Structure**
+```
+zkp/
+├── circuits/MalaysianIncomeClassifier.circom
+├── inputs/input.json (private inputs) 
+├── outputs/
+│   ├── circuit.zkey (proving key)
+│   ├── verification_key.json (public verification key)
+│   └── witness.wtns (intermediate witness)
+└── proofs/
+    ├── proof.json (ZK proof: π_a, π_b, π_c)
+    └── public.json (public signals: income bracket only)
+```
+
+### **API Endpoints**
+- `POST /api/generate-proof` - Generate ZK proof from IC verification
+- `POST /api/verify-proof` - Independently verify submitted proof
+- `GET /api/verification-status/:ic` - Check IC verification status
+- `POST /api/ic-verification` - Trigger IC→LHDN→ZK verification flow
 
 ---
 
