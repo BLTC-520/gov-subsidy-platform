@@ -65,9 +65,7 @@ Key goals:
 
 ## Architecture
 
-```
-
-```
+![Architecture Diagram](ArchitectureDiagram.png)
 
 **Key Notes:**
 
