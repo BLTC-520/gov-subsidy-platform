@@ -102,7 +102,7 @@ start_service "frontend" "frontend" "npm run dev" "5173"
 start_service "backend-lhdn" "backend/mock-lhdn-api" "npm run dev" "3001"
 
 # Start ZK Circuit Service (port 3002)  
-start_service "backend-zk" "backend" "npm run dev" "3002"
+start_service "backend-zk" "backend/zk-service" "npm run dev" "3002"
 
 echo -e "\n${GREEN}🎉 All services started successfully!${NC}"
 echo -e "\n${BLUE}📋 Service URLs:${NC}"
