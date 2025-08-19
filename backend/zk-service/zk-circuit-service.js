@@ -219,7 +219,7 @@ app.get('/api-docs.json', (req, res) => {
 });
 
 // Path to ZK project directory
-const ZK_PROJECT_PATH = path.join(__dirname, '../zkp');
+const ZK_PROJECT_PATH = path.join(__dirname, '../../zkp');
 const CIRCUITS_PATH = path.join(ZK_PROJECT_PATH, 'circuits');
 const OUTPUTS_PATH = path.join(ZK_PROJECT_PATH, 'outputs');
 const PROOFS_PATH = path.join(ZK_PROJECT_PATH, 'proofs');
