@@ -1,10 +1,15 @@
 import { useState, useCallback } from 'react';
 
+interface ZKProof {
+  proof: string;
+  publicSignals: string[];
+}
+
 interface ICVerificationData {
   citizenName: string;
   incomeBracket: string;
   verificationStatus: 'unverified' | 'loading' | 'verified' | 'error';
-  zkProof?: any;
+  zkProof?: ZKProof;
   errorMessage?: string;
 }
 
@@ -13,7 +18,7 @@ interface ZKVerificationResult {
   citizen_name: string;
   income_bracket: string;
   verification_status: string;
-  zk_proof: any;
+  zk_proof: ZKProof;
   zk_verified: boolean;
   message: string;
   privacy_note: string;
