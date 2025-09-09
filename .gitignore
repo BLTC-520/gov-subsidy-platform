@@ -20,6 +20,6 @@ Thumbs.db
 .vscode/
 .idea/
 
-# Service management scripts (contain hardcoded credentials)
+# Service management scripts 
 start-all-services.sh
 stop-all-services.sh
