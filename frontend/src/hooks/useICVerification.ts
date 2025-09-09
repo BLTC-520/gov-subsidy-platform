@@ -1,5 +1,4 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
 
 interface ZKProof {
   pi_a: string[];
@@ -105,7 +104,7 @@ export function useICVerification() {
           verificationStatus: 'error',
           errorMessage: zkResult.error || 'ZK verification failed'
         };
-        
+
         setVerificationData(errorData);
         return errorData;
       }
@@ -120,7 +119,7 @@ export function useICVerification() {
         verificationStatus: 'verified',
         zkProof: zkResult.zk_proof
       };
-      
+
       setVerificationData(successData);
       return successData;
 
@@ -132,7 +131,7 @@ export function useICVerification() {
         verificationStatus: 'error',
         errorMessage: error instanceof Error ? error.message : 'Network error'
       };
-      
+
       setVerificationData(errorData);
       return errorData;
     }

@@ -5,6 +5,7 @@ export interface Profile {
   id: string;
   email: string;
   is_admin: boolean;
+  nric: string | null; // Malaysian IC number
   wallet_address: string | null;
   full_name: string | null;
   date_of_birth: string | null;
@@ -20,9 +21,11 @@ export interface Profile {
   state: string | null;
   eligibility_score: number | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface ProfileFormData {
+  nric?: string;
   wallet_address?: string;
   full_name?: string;
   date_of_birth?: string;
@@ -46,12 +49,12 @@ export const useProfile = () => {
       setError(null);
 
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
+
       if (userError) {
         console.error('Auth error:', userError);
         throw new Error('Authentication failed');
       }
-      
+
       if (!user) {
         throw new Error('No authenticated user');
       }
@@ -81,7 +84,7 @@ export const useProfile = () => {
 
   // Update profile data (with optional ZK verification data)
   const updateProfile = async (
-    formData: ProfileFormData, 
+    formData: ProfileFormData,
     zkData?: {
       incomeBracket: string;
       citizenName: string;
@@ -89,19 +92,19 @@ export const useProfile = () => {
       zkFlags: number[];
       isSignatureValid: boolean;
       isDataAuthentic: boolean;
-      zkProof: any;
+      zkProof: Record<string, unknown>;
     } | null
   ) => {
     try {
       setError(null);
 
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
+
       if (userError) {
         console.error('Auth error:', userError);
         throw new Error('Authentication failed');
       }
-      
+
       if (!user) {
         throw new Error('No authenticated user');
       }
@@ -109,7 +112,7 @@ export const useProfile = () => {
       // If ZK data is provided, use the comprehensive backend endpoint
       if (zkData && zkData.verified) {
         console.log('Updating profile with ZK data via backend API...');
-        
+
         const response = await fetch('http://localhost:3002/api/profile/update-with-zk', {
           method: 'POST',
           headers: {
@@ -173,6 +176,10 @@ export const useProfile = () => {
   const validateFormData = (formData: ProfileFormData): string[] => {
     const errors: string[] = [];
 
+    if (formData.nric && formData.nric.length < 12) {
+      errors.push('NRIC must be at least 12 characters');
+    }
+
     if (formData.wallet_address && !validateEthereumAddress(formData.wallet_address)) {
       errors.push('Invalid Ethereum address format');
     }
@@ -193,7 +200,7 @@ export const useProfile = () => {
       const birthDate = new Date(formData.date_of_birth);
       const now = new Date();
       const age = now.getFullYear() - birthDate.getFullYear();
-      
+
       if (age < 18 || age > 120) {
         errors.push('Age must be between 18 and 120 years');
       }
@@ -217,8 +224,8 @@ export const useProfile = () => {
       'wallet_address'
     ];
 
-    return requiredFields.every(field => 
-      profile[field as keyof Profile] !== null && 
+    return requiredFields.every(field =>
+      profile[field as keyof Profile] !== null &&
       profile[field as keyof Profile] !== undefined &&
       profile[field as keyof Profile] !== ''
     );

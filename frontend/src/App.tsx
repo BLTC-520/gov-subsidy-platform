@@ -7,9 +7,11 @@ import CitizenListPage from "./pages/CitizenListPage";
 import CitizenProfilePage from "./pages/CitizenProfilePage";
 import ProfilePage from "./pages/ProfilePage";
 import CitizenClaimPage from "./pages/CitizenClaimPage";
+import CitizenDashboard from "./pages/CitizenDashboard";
 import FileUploadPage from "./pages/FileUploadPage";
 import ZKDemoPage from "./pages/ZKDemoPage";
 import { RouteGuard } from "./components/auth/RouteGuard";
+import { CitizenRedirect } from "./components/common/CitizenRedirect";
 
 function App() {
   return (
@@ -51,10 +53,26 @@ function App() {
           }
         />
         <Route
-          path="/citizen"
+          path="/citizen/dashboard"
+          element={
+            <RouteGuard requiredRole="citizen">
+              <CitizenDashboard />
+            </RouteGuard>
+          }
+        />
+        <Route
+          path="/citizen/application"
           element={
             <RouteGuard requiredRole="citizen">
               <CitizenProfilePage />
+            </RouteGuard>
+          }
+        />
+        <Route
+          path="/citizen"
+          element={
+            <RouteGuard requiredRole="citizen">
+              <CitizenRedirect />
             </RouteGuard>
           }
         />
