@@ -397,7 +397,7 @@ T20 (Top 20%):
 - **Educational content**: "How it Works" explanations for non-technical users
 - **Production simulation**: Real LHDN API integration with government-grade security
 
-#### ⚡ Production Readiness:
+#### ⚡ August Production Readiness:
 - **Automated setup**: No manual circuit compilation required
 - **Error handling**: Comprehensive error recovery and user feedback
 - **Scalable architecture**: Separate services for API, ZK processing, and frontend
@@ -405,3 +405,221 @@ T20 (Top 20%):
 - **Documentation**: Complete technical documentation and demo materials
 
 **Ready for AI RAG agents with n8n! 🚀**
+
+---
+
+## September 09 (1:00am - 8.00am) - ZK Migration & UX Enhancement ⚡⚡
+### Phase 5: Separated ZK Verification from Database Storage + Enhanced User Experience
+
+#### 🚀 Major Architecture Improvement (6-Hour Sprint):
+- **✅ Separated ZK Verification from Storage**: ZK proof generation now separate from database updates
+- **✅ Enhanced User Control**: Users now control when their verified data gets saved
+- **✅ Improved UX with Step-by-Step Process**: Visual progress indicators during ZK proof generation
+- **✅ Atomic Database Operations**: All profile data + ZK verification saved in single transaction
+- **✅ Service Management Scripts**: Complete start/stop automation with ZK cleanup
+
+#### 🔧 Critical Architecture Changes:
+
+**1. Backend API Restructuring:**
+- **Modified `/api/ic-verification`**: Now ONLY generates ZK proof, NO database writes
+- **Removed `/api/zk/verify-and-store`**: Old immediate storage endpoint eliminated  
+- **Added `/api/profile/update-with-zk`**: New comprehensive endpoint for atomic profile + ZK updates
+- **Fixed Environment Loading**: Resolved dotenv loading issues preventing service startup
+- **Removed Database Conflicts**: Fixed `updated_at` column error in Supabase
+
+**2. Frontend UX Revolution:**
+- **Step-by-Step ZK Process Visualization**: 
+  ```
+  LHDN Lookup ✓ → Circuit Setup ✓ → Witness Generation ✓ → 
+  ZK Proof Generation ✓ → Proof Verification ✓ → Completed ✓
+  ```
+- **Enhanced Loading States**: Each step shows ~800ms with realistic progress animation
+- **Button State Management**: "Verify Income" becomes disabled after success with "✓ Income Verified - Cannot Re-verify"
+- **Clear User Instructions**: "⚠️ Click 'Save Profile' below to store this verification"
+- **Form Validation**: "Save Profile" disabled until ZK verification completed
+
+**3. Data Flow Transformation:**
+```javascript
+// OLD FLOW (Immediate Storage):
+User clicks "Verify Income" → ZK Proof Generated → IMMEDIATELY stored to DB
+
+// NEW FLOW (User-Controlled Storage): 
+User clicks "Verify Income" → ZK Proof Generated → Stored in React State
+User fills profile → Clicks "Save Profile" → ALL data saved atomically
+```
+
+#### 🎯 Enhanced Frontend Components:
+
+**IncomeVerificationField.tsx (Complete Rewrite):**
+- **Progress Visualization**: 6-step process with animated progress indicators
+- **Step Status Tracking**: `'idle' | 'lhdn_lookup' | 'circuit_compilation' | 'witness_generation' | 'proof_generation' | 'proof_verification' | 'completed'`
+- **Enhanced Error States**: Improved error handling with retry buttons
+- **Privacy Messaging**: "🔐 Your income amount remains completely private during this process"
+- **Completion State**: Clear success indication with income bracket display
+
+**CitizenProfilePage.tsx (Enhanced Integration):**
+- **ZK Data Collection**: Captures complete ZK verification results in component state
+- **Save Button Enhancement**: Shows "Save Profile & ZK Data..." during submission
+- **Validation Logic**: Prevents saving without completed ZK verification
+- **Success Indication**: "Income verified (Bracket: M2) - Ready to save" feedback
+
+#### 🔄 Hook Architecture Improvements:
+
+**useICVerification.ts (Simplified):**
+- **Removed Database Logic**: No longer calls storage endpoints
+- **Pure ZK Focus**: Only handles proof generation and citizen lookup
+- **Memory Storage**: ZK results stored in React state until profile save
+- **Enhanced Response**: Returns complete ZK data (flags, signatures, authenticity)
+
+**useProfile.ts (Enhanced):**
+```typescript
+const updateProfile = async (
+  formData: ProfileFormData, 
+  zkData?: {
+    incomeBracket: string;
+    zkFlags: number[];
+    isSignatureValid: boolean;
+    isDataAuthentic: boolean;
+    zkProof: any;
+  }
+) => {
+  // Calls new comprehensive backend endpoint
+  // Atomic database transaction with all data
+}
+```
+
+#### 🛡️ Backend Security & Reliability:
+
+**Environment Variable Management:**
+- **Fixed dotenv Loading**: Resolved startup failures from missing environment variables
+- **Enhanced Error Reporting**: Better debugging for configuration issues  
+- **Supabase Integration**: Proper service role key validation and connection testing
+
+**API Response Enhancement:**
+```javascript
+// New /api/ic-verification Response:
+{
+  success: true,
+  citizen_name: "HAR SZE HAO",
+  income_bracket: "M2", 
+  zk_flags: [0,0,0,0,0,1,0,0,0,0],
+  is_signature_valid: true,
+  is_data_authentic: true,
+  zk_proof: { pi_a: [...], pi_b: [...], pi_c: [...] },
+  note: "ZK proof generated successfully. Data NOT saved to database yet."
+}
+```
+
+#### 🎛️ Service Management Automation:
+
+**Enhanced start-all-services.sh:**
+- **Zero Configuration**: Automatically creates .env files with credentials
+- **Health Validation**: Tests all endpoints with retry logic  
+- **Port Management**: Validates 5173, 3001, 3002 availability
+- **Service Dependencies**: Proper startup order and dependency checking
+
+**New stop-all-services.sh:**
+- **Multi-Method Shutdown**: Kills by PID files, ports, and process names
+- **ZK Cleanup Integration**: Automatically runs `./zkp/clean.sh`
+- **Complete Cleanup**: Removes outputs/, proofs/, and temporary files
+- **Status Verification**: Confirms all ports are freed
+
+#### 📊 User Experience Testing:
+
+**Complete Flow Validation:**
+```
+1. User enters IC (030520-01-2185) → Name auto-populates (HAR SZE HAO)
+2. User clicks "Verify Income with ZK-SNARK" → 6-step progress visualization
+3. ZK proof completes → Button shows "✓ Income Verified - Cannot Re-verify"
+4. User fills profile form → "Save Profile" enabled with ZK data indicator
+5. User clicks "Save Profile" → Atomic save of profile + ZK verification
+6. Success: Profile updated with income bracket M2, ZK flags, verification status
+```
+
+**Error Recovery:**
+- **Database Conflicts**: Fixed `updated_at` column missing in Supabase schema
+- **Environment Issues**: Resolved dotenv loading preventing service startup
+- **YAML Parsing**: Fixed duplicate Swagger response codes causing startup failure
+- **API Versioning**: Updated hook calls to new endpoint structure
+
+#### 🎯 Technical Improvements:
+
+**Swagger Documentation Update:**
+- **Focused on Frontend Endpoints**: Only documents APIs actually used by frontend
+- **Comprehensive Examples**: Detailed request/response schemas for all endpoints
+- **Clear Descriptions**: Updated to reflect new separation of concerns
+
+**TypeScript Interface Updates:**
+```typescript
+interface Profile {
+  // Added ZK-specific fields
+  income_bracket: string | null;
+  zk_class_flags: number[] | null; 
+  is_signature_valid: boolean | null;
+  is_data_authentic: boolean | null;
+  // ... existing fields
+}
+```
+
+#### 🔧 Development Workflow Improvements:
+
+**Service Management:**
+```bash
+# Start everything (zero config)
+./start-all-services.sh
+
+# Stop everything + cleanup ZK files  
+./stop-all-services.sh
+
+# Individual service (now works properly)
+cd backend/zk-service && npm run dev
+```
+
+**Testing Process:**
+- **Real User Flow**: Tested complete citizen verification with IC 030520-01-2185
+- **Database Integration**: Verified atomic updates with ZK flags and income bracket
+- **Error Scenarios**: Tested validation failures and recovery
+- **Service Reliability**: Confirmed proper startup/shutdown with cleanup
+
+#### Files Created:
+- `stop-all-services.sh` - Comprehensive service shutdown with ZK cleanup
+- Enhanced error handling and environment validation across all services
+
+#### Files Enhanced (Major Refactoring):
+- `backend/zk-service/zk-circuit-service.js` - New `/api/profile/update-with-zk` endpoint
+- `backend/zk-service/lib/supabase.js` - Enhanced environment variable validation
+- `frontend/src/components/zk/IncomeVerificationField.tsx` - Complete UX rewrite with step progress
+- `frontend/src/pages/CitizenProfilePage.tsx` - ZK data collection and save integration
+- `frontend/src/hooks/useICVerification.ts` - Simplified to pure ZK verification
+- `frontend/src/hooks/useProfile.ts` - Enhanced with ZK data handling
+- `start-all-services.sh` - Improved reliability and error handling
+
+#### 🎉 Results After 6-Hour Sprint:
+
+**User Experience Revolution:**
+- **Clear Process Understanding**: Users see exactly what's happening during ZK verification
+- **Full Control**: Users decide when their verified data gets saved
+- **Professional Feedback**: Step-by-step progress with realistic timing
+- **Error Recovery**: Better error messages and retry options
+
+**Developer Experience:**
+- **Simple Service Management**: `./start-all-services.sh` → everything works
+- **Clean Shutdown**: `./stop-all-services.sh` → complete cleanup
+- **Reliable Environment**: No more dotenv loading issues
+- **Clear Architecture**: Separated concerns between verification and storage
+
+**Technical Reliability:**
+- **Atomic Operations**: All profile data + ZK verification saved together
+- **No Data Loss**: ZK proofs stored safely in memory until user confirms save
+- **Clean State**: Proper service shutdown with ZK file cleanup
+- **Production Ready**: Comprehensive error handling and user feedback
+
+#### ⚡ Performance & Security:
+- **Zero Database Calls During ZK**: Proof generation no longer triggers immediate storage
+- **User Privacy**: ZK data remains in memory until explicit user action
+- **Atomic Transactions**: Prevents partial profile updates if ZK save fails
+- **Service Isolation**: Clean separation between proof generation and data persistence
+
+**Status: PRODUCTION-READY ZK VERIFICATION SYSTEM WITH ENHANCED UX! 🚀**
+
+Next Phase: AI eligibility scoring integration with the new atomic profile+ZK data structure!

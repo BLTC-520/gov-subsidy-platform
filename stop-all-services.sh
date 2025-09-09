@@ -1,0 +1,171 @@
+#!/bin/bash
+
+# Stop All Services Script
+# This script stops all the services for the Gov Subsidy Platform
+
+set -e
+
+echo "🛑 Stopping all services for Gov Subsidy Platform..."
+
+# Color codes for better output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# Function to kill processes by port
+kill_by_port() {
+    local port=$1
+    local service_name=$2
+    
+    echo -e "\n${BLUE}🔍 Checking port $port for $service_name...${NC}"
+    
+    # Find processes using the port
+    local pids=$(lsof -ti :$port 2>/dev/null || true)
+    
+    if [ -n "$pids" ]; then
+        echo -e "${YELLOW}⚠️  Found processes on port $port: $pids${NC}"
+        
+        # Kill each process
+        for pid in $pids; do
+            if kill -0 $pid 2>/dev/null; then
+                kill -TERM $pid 2>/dev/null || true
+                sleep 1
+                
+                # Force kill if still running
+                if kill -0 $pid 2>/dev/null; then
+                    kill -KILL $pid 2>/dev/null || true
+                fi
+                
+                echo -e "${GREEN}✅ Stopped $service_name (PID: $pid)${NC}"
+            fi
+        done
+    else
+        echo -e "${GREEN}✅ No processes found on port $port${NC}"
+    fi
+}
+
+# Function to kill processes by PID files
+kill_by_pid_files() {
+    echo -e "\n${BLUE}🔍 Checking PID files...${NC}"
+    
+    local killed_any=false
+    
+    for service in frontend backend-lhdn backend-zk; do
+        local pid_file="/tmp/gov-subsidy-$service.pid"
+        
+        if [ -f "$pid_file" ]; then
+            local pid=$(cat "$pid_file" 2>/dev/null || echo "")
+            
+            if [ -n "$pid" ] && kill -0 $pid 2>/dev/null; then
+                kill -TERM $pid 2>/dev/null || true
+                sleep 1
+                
+                # Force kill if still running
+                if kill -0 $pid 2>/dev/null; then
+                    kill -KILL $pid 2>/dev/null || true
+                fi
+                
+                echo -e "${GREEN}✅ Stopped $service (PID: $pid)${NC}"
+                killed_any=true
+            fi
+            
+            # Clean up PID file
+            rm -f "$pid_file"
+        fi
+    done
+    
+    if [ "$killed_any" = false ]; then
+        echo -e "${GREEN}✅ No PID files found${NC}"
+    fi
+}
+
+# Function to kill Node.js processes related to our services
+kill_related_node_processes() {
+    echo -e "\n${BLUE}🔍 Checking for related Node.js processes...${NC}"
+    
+    # Kill processes with our specific service names in command line
+    local patterns=("gov-subsidy" "zk-circuit-service" "mock-lhdn-api" "vite.*5173")
+    local killed_any=false
+    
+    for pattern in "${patterns[@]}"; do
+        local pids=$(pgrep -f "$pattern" 2>/dev/null || true)
+        
+        if [ -n "$pids" ]; then
+            echo -e "${YELLOW}⚠️  Found processes matching '$pattern': $pids${NC}"
+            
+            for pid in $pids; do
+                if kill -0 $pid 2>/dev/null; then
+                    # Get process command for confirmation
+                    local cmd=$(ps -p $pid -o comm= 2>/dev/null || echo "unknown")
+                    
+                    kill -TERM $pid 2>/dev/null || true
+                    sleep 1
+                    
+                    # Force kill if still running
+                    if kill -0 $pid 2>/dev/null; then
+                        kill -KILL $pid 2>/dev/null || true
+                    fi
+                    
+                    echo -e "${GREEN}✅ Stopped process: $cmd (PID: $pid)${NC}"
+                    killed_any=true
+                fi
+            done
+        fi
+    done
+    
+    if [ "$killed_any" = false ]; then
+        echo -e "${GREEN}✅ No related Node.js processes found${NC}"
+    fi
+}
+
+# Main cleanup process
+
+echo -e "${YELLOW}🎯 Method 1: Stopping services by PID files...${NC}"
+kill_by_pid_files
+
+echo -e "${YELLOW}🎯 Method 2: Stopping services by port numbers...${NC}"
+kill_by_port 5173 "Frontend (Vite)"
+kill_by_port 3001 "Mock LHDN API"
+kill_by_port 3002 "ZK Circuit Service"
+
+echo -e "${YELLOW}🎯 Method 3: Stopping related Node.js processes...${NC}"
+kill_related_node_processes
+
+# Final verification
+echo -e "\n${BLUE}🔍 Final verification - checking ports...${NC}"
+for port in 5173 3001 3002; do
+    if lsof -Pi :$port -sTCP:LISTEN -t >/dev/null 2>&1; then
+        echo -e "${RED}⚠️  Port $port is still in use${NC}"
+    else
+        echo -e "${GREEN}✅ Port $port is now free${NC}"
+    fi
+done
+
+# Clean up ZK-SNARK generated files
+echo -e "\n${YELLOW}🧹 Cleaning up ZK-SNARK build files...${NC}"
+ZK_CLEAN_SCRIPT="./zkp/clean.sh"
+
+if [ -f "$ZK_CLEAN_SCRIPT" ]; then
+    if [ -x "$ZK_CLEAN_SCRIPT" ]; then
+        echo -e "${BLUE}🔧 Running ZK cleanup script...${NC}"
+        (cd zkp && ./clean.sh) || echo -e "${YELLOW}⚠️  ZK cleanup script failed, but continuing...${NC}"
+        echo -e "${GREEN}✅ ZK build files cleaned${NC}"
+    else
+        echo -e "${YELLOW}⚠️  ZK cleanup script exists but is not executable${NC}"
+        echo -e "${BLUE}💡 Run: chmod +x zkp/clean.sh${NC}"
+    fi
+else
+    echo -e "${YELLOW}⚠️  ZK cleanup script not found at $ZK_CLEAN_SCRIPT${NC}"
+fi
+
+echo -e "\n${GREEN}🎉 All services stopped and cleaned up successfully!${NC}"
+echo -e "\n${BLUE}💡 Tips:${NC}"
+echo -e "  • Use ./start-all-services.sh to start services again"
+echo -e "  • Check 'ps aux | grep node' if you suspect any processes are still running"
+echo -e "  • Use 'lsof -i :PORT' to check specific ports"
+echo -e "  • ZK-SNARK build files have been cleaned up (outputs/, proofs/)"
+echo -e "  • Fresh ZK circuit compilation will be needed on next startup"
+
+exit 0

@@ -1,3 +1,18 @@
+// Load environment variables FIRST, before any other imports
+import dotenv from 'dotenv';
+dotenv.config();
+
+// Verify environment variables are loaded
+if (!process.env.SUPABASE_URL || !process.env.SUPABASE_SERVICE_ROLE_KEY) {
+    console.error('Environment variables not loaded properly.');
+    console.error('Current SUPABASE_URL:', process.env.SUPABASE_URL ? 'SET' : 'NOT SET');
+    console.error('Current SUPABASE_SERVICE_ROLE_KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'SET' : 'NOT SET');
+    console.error('Make sure .env file exists in:', process.cwd());
+    process.exit(1);
+}
+
+console.log('Environment variables loaded successfully');
+
 import express from 'express';
 import cors from 'cors';
 import { spawn } from 'child_process';
@@ -6,6 +21,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import swaggerJsdoc from 'swagger-jsdoc';
 import swaggerUi from 'swagger-ui-express';
+import { supabase } from './lib/supabase.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -13,18 +29,14 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = 3002;
 
-// Swagger API documentation configuration
+// Swagger API documentation - Frontend Endpoints Only
 const swaggerOptions = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'ZK Circuit Service API',
+      title: 'ZK Service API - Frontend Endpoints',
       version: '1.0.0',
-      description: 'Zero-Knowledge Circuit Compilation and Execution Service for Income Verification',
-      contact: {
-        name: 'ZK Circuit Service',
-        email: 'dev@gov-subsidy-platform.com'
-      },
+      description: 'API endpoints used by the frontend for ZK verification',
     },
     servers: [
       {
@@ -32,171 +44,6 @@ const swaggerOptions = {
         description: 'Development server',
       },
     ],
-    components: {
-      schemas: {
-        CircuitInputs: {
-          type: 'object',
-          required: ['monthly_income', 'signature', 'verification_timestamp', 'public_key', 'ic_hash', 'timestamp_range'],
-          properties: {
-            monthly_income: {
-              type: 'string',
-              description: 'Monthly income amount in RM as string',
-              example: '1800'
-            },
-            signature: {
-              type: 'string', 
-              description: 'HMAC signature from LHDN API as BigInt string',
-              example: '1234567890123456'
-            },
-            verification_timestamp: {
-              type: 'string',
-              description: 'Unix timestamp when LHDN verified the data',
-              example: '1640995200'
-            },
-            public_key: {
-              type: 'string',
-              description: 'LHDN public key as BigInt string',  
-              example: '9876543210987654'
-            },
-            ic_hash: {
-              type: 'string',
-              description: 'Hash of IC number for privacy',
-              example: '1122334455'
-            },
-            timestamp_range: {
-              type: 'string', 
-              description: 'Maximum allowed timestamp age in milliseconds',
-              example: '86400000'
-            }
-          }
-        },
-        CircuitOutputs: {
-          type: 'object',
-          properties: {
-            class_flags: {
-              type: 'array',
-              items: {
-                type: 'integer',
-                minimum: 0,
-                maximum: 1
-              },
-              description: 'One-hot encoded income classification [B1,B2,B3,B4,M1,M2,M3,M4,T1,T2]',
-              example: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
-            },
-            is_signature_valid: {
-              type: 'integer',
-              minimum: 0,
-              maximum: 1,
-              description: 'Whether LHDN signature is authentic (1=valid, 0=invalid)',
-              example: 1
-            },
-            is_data_authentic: {
-              type: 'integer',
-              minimum: 0,
-              maximum: 1, 
-              description: 'Whether all verification checks pass (1=authentic, 0=invalid)',
-              example: 1
-            },
-            income_classification: {
-              type: 'string',
-              description: 'Human-readable income bracket classification',
-              example: 'B1'
-            },
-            raw_witness: {
-              type: 'array',
-              items: {
-                type: 'string'
-              },
-              description: 'Raw witness values from circuit execution'
-            }
-          }
-        },
-        ExecutionRequest: {
-          type: 'object',
-          required: ['circuitInputs'],
-          properties: {
-            circuitInputs: {
-              $ref: '#/components/schemas/CircuitInputs'
-            }
-          }
-        },
-        ExecutionResponse: {
-          type: 'object', 
-          properties: {
-            success: {
-              type: 'boolean',
-              description: 'Whether circuit execution succeeded'
-            },
-            outputs: {
-              $ref: '#/components/schemas/CircuitOutputs'
-            },
-            compilation_log: {
-              type: 'string',
-              description: 'Log output from circuit compilation'
-            },
-            witness_log: {
-              type: 'string', 
-              description: 'Log output from witness calculation'
-            },
-            message: {
-              type: 'string',
-              description: 'Human-readable status message'
-            }
-          }
-        },
-        ErrorResponse: {
-          type: 'object',
-          properties: {
-            success: {
-              type: 'boolean',
-              example: false
-            },
-            error: {
-              type: 'string',
-              description: 'Human-readable error message'
-            },
-            details: {
-              type: 'string',
-              description: 'Technical error details'
-            }
-          }
-        },
-        ToolsStatus: {
-          type: 'object',
-          properties: {
-            circom_available: {
-              type: 'boolean',
-              description: 'Whether circom compiler is available'
-            },
-            snarkjs_available: {
-              type: 'boolean',
-              description: 'Whether snarkjs toolkit is available'  
-            },
-            all_tools_ready: {
-              type: 'boolean',
-              description: 'Whether all required tools are available'
-            }
-          }
-        },
-        HealthResponse: {
-          type: 'object',
-          properties: {
-            status: {
-              type: 'string',
-              example: 'OK'
-            },
-            service: {
-              type: 'string',
-              example: 'ZK Circuit Service'
-            },
-            timestamp: {
-              type: 'string',
-              format: 'date-time'
-            }
-          }
-        }
-      }
-    }
   },
   apis: ['./zk-circuit-service.js'],
 };
@@ -206,17 +53,11 @@ const swaggerSpec = swaggerJsdoc(swaggerOptions);
 app.use(cors());
 app.use(express.json());
 
-// Swagger UI setup
+// Swagger UI for frontend developers
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   customCss: '.swagger-ui .topbar { display: none }',
-  customSiteTitle: 'ZK Circuit Service API Documentation'
+  customSiteTitle: 'ZK Service API - Frontend Endpoints'
 }));
-
-// Swagger JSON endpoint
-app.get('/api-docs.json', (req, res) => {
-  res.setHeader('Content-Type', 'application/json');
-  res.send(swaggerSpec);
-});
 
 // Path to ZK project directory
 const ZK_PROJECT_PATH = path.join(__dirname, '../../zkp');
@@ -225,67 +66,7 @@ const OUTPUTS_PATH = path.join(ZK_PROJECT_PATH, 'outputs');
 const PROOFS_PATH = path.join(ZK_PROJECT_PATH, 'proofs');
 const INPUTS_PATH = path.join(ZK_PROJECT_PATH, 'inputs');
 
-/**
- * @swagger
- * /api/execute-circuit:
- *   post:
- *     summary: Execute ZK circuit with income verification
- *     description: |
- *       Compiles and executes the MalaysianIncomeClassifier Circom circuit with provided inputs.
- *       Performs signature verification and income classification in zero-knowledge.
- *     tags: [Circuit Execution]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/ExecutionRequest'
- *           example:
- *             circuitInputs:
- *               monthly_income: "1800"
- *               signature: "1234567890123456"
- *               verification_timestamp: "1640995200"
- *               public_key: "9876543210987654"
- *               ic_hash: "1122334455"
- *               timestamp_range: "86400000"
- *     responses:
- *       200:
- *         description: Circuit executed successfully
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ExecutionResponse'
- *             example:
- *               success: true
- *               outputs:
- *                 class_flags: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
- *                 is_signature_valid: 1
- *                 is_data_authentic: 1
- *                 income_classification: "B1"
- *               compilation_log: "Circuit compiled successfully"
- *               witness_log: "Witness calculated successfully"
- *               message: "ZK circuit executed successfully"
- *       400:
- *         description: Invalid input parameters
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *             example:
- *               success: false
- *               error: "Invalid circuit inputs"
- *               details: "monthly_income must be a valid number string"
- *       500:
- *         description: Circuit execution or compilation failed
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/ErrorResponse'
- *             example:
- *               success: false
- *               error: "Circuit compilation failed"
- *               details: "circom: command not found"
- */
+// Execute ZK circuit with income verification (NOT USED BY FRONTEND - no swagger)
 app.post('/api/execute-circuit', async (req, res) => {
     try {
         const { circuitInputs } = req.body;
@@ -374,13 +155,9 @@ app.post('/api/execute-circuit', async (req, res) => {
  * @swagger
  * /api/ic-verification:
  *   post:
- *     summary: Complete IC verification with ZK proof generation
- *     description: |
- *       Performs complete IC verification flow:
- *       1. Fetch income data from LHDN API
- *       2. Generate ZK proof of income classification
- *       3. Return verified income bracket with cryptographic proof
- *     tags: [IC Verification]
+ *     summary: Generate ZK proof for IC verification (verification only, no database storage)
+ *     description: Used by frontend - Generates ZK proof for IC verification and returns income bracket data without saving to database
+ *     tags: [Frontend Endpoints]
  *     requestBody:
  *       required: true
  *       content:
@@ -409,10 +186,27 @@ app.post('/api/execute-circuit', async (req, res) => {
  *                   example: "HAR SZE HAO"
  *                 income_bracket:
  *                   type: string
- *                   example: "B1"
+ *                   example: "M2"
  *                 verification_status:
  *                   type: string
  *                   example: "verified"
+ *                 zk_verified:
+ *                   type: boolean
+ *                   example: true
+ *                 zk_flags:
+ *                   type: array
+ *                   items:
+ *                     type: integer
+ *                   example: [0, 0, 0, 0, 0, 1, 0, 0, 0, 0]
+ *                   description: "One-hot encoded income classification flags"
+ *                 is_signature_valid:
+ *                   type: boolean
+ *                   example: true
+ *                   description: "Whether LHDN signature verification passed"
+ *                 is_data_authentic:
+ *                   type: boolean
+ *                   example: true
+ *                   description: "Whether all data authenticity checks passed"
  *                 zk_proof:
  *                   type: object
  *                   properties:
@@ -432,13 +226,20 @@ app.post('/api/execute-circuit', async (req, res) => {
  *                       type: array
  *                       items:
  *                         type: string
+ *                       description: "Elements 0-9: Income flags, Element 10: is_signature_valid, Element 11: is_data_authentic"
  *                 message:
  *                   type: string
- *                   example: "Income bracket verified with zero-knowledge proof"
+ *                   example: "Income bracket M2 verified with zero-knowledge proof"
+ *                 privacy_note:
+ *                   type: string
+ *                   example: "Actual income amount (RM7000) remains private"
+ *                 note:
+ *                   type: string
+ *                   example: "ZK proof generated successfully. Data NOT saved to database yet."
  *       400:
- *         description: Invalid IC number
+ *         description: Invalid IC number or verification failed
  *       500:
- *         description: Verification or proof generation failed
+ *         description: ZK proof generation failed
  */
 app.post('/api/ic-verification', async (req, res) => {
     try {
@@ -554,10 +355,10 @@ app.post('/api/ic-verification', async (req, res) => {
             });
         }
 
-        // Step 7: Extract income classification
+        // Step 7: Extract income classification (but don't store to database)
         const outputs = await extractOutputsFromWitness();
 
-        // Success response
+        // Return verification results WITHOUT database storage
         res.json({
             success: true,
             citizen_name: lhdnData.citizen_name,
@@ -565,8 +366,12 @@ app.post('/api/ic-verification', async (req, res) => {
             verification_status: 'verified',
             zk_proof: proofResult.proof,
             zk_verified: verificationResult.verified,
+            zk_flags: outputs.class_flags,
+            is_signature_valid: outputs.is_signature_valid === 1,
+            is_data_authentic: outputs.is_data_authentic === 1,
             message: `Income bracket ${outputs.income_classification} verified with zero-knowledge proof`,
-            privacy_note: 'Actual income amount (RM' + lhdnData.monthly_income + ') remains private'
+            privacy_note: 'Actual income amount (RM' + lhdnData.monthly_income + ') remains private',
+            note: 'ZK proof generated successfully. Data NOT saved to database yet.'
         });
 
     } catch (error) {
@@ -1004,8 +809,8 @@ async function extractOutputsFromWitness() {
  * /api/lookup-citizen:
  *   post:
  *     summary: Simple citizen name lookup by IC number
- *     description: Fetch citizen name from LHDN database using IC number. No ZK verification - just name lookup.
- *     tags: [IC Lookup]
+ *     description: Used by frontend - Fetch citizen name from LHDN database. No ZK verification, just name lookup for UI display
+ *     tags: [Frontend Endpoints]
  *     requestBody:
  *       required: true
  *       content:
@@ -1037,17 +842,8 @@ async function extractOutputsFromWitness() {
  *                   example: "030520-01-2185"
  *       404:
  *         description: Citizen not found in LHDN database
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: false
- *                 error:
- *                   type: string
- *                   example: "Citizen not found"
+ *       500:
+ *         description: LHDN API error
  */
 app.post('/api/lookup-citizen', async (req, res) => {
     try {
@@ -1092,6 +888,199 @@ app.post('/api/lookup-citizen', async (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Internal server error during lookup'
+        });
+    }
+});
+
+/**
+ * @swagger
+ * /api/profile/update-with-zk:
+ *   post:
+ *     summary: Update complete user profile including ZK verification data
+ *     description: |
+ *       Comprehensive profile update that includes both regular profile fields
+ *       and ZK verification results. This ensures atomic database operations
+ *       where all user data is saved together.
+ *     tags: [Frontend Endpoints]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [userId, profileData, zkData]
+ *             properties:
+ *               userId:
+ *                 type: string
+ *                 description: User ID for profile update
+ *                 example: "550e8400-e29b-41d4-a716-446655440000"
+ *               profileData:
+ *                 type: object
+ *                 description: Regular profile fields
+ *                 properties:
+ *                   wallet_address:
+ *                     type: string
+ *                     example: "0x742D35Cc6634C0532925a3b8D4a2E6A4A2E6A4"
+ *                   full_name:
+ *                     type: string
+ *                     example: "HAR SZE HAO"
+ *                   date_of_birth:
+ *                     type: string
+ *                     example: "1990-05-20"
+ *                   gender:
+ *                     type: string
+ *                     example: "Male"
+ *                   state:
+ *                     type: string
+ *                     example: "Selangor"
+ *                   household_size:
+ *                     type: integer
+ *                     example: 4
+ *                   number_of_children:
+ *                     type: integer
+ *                     example: 2
+ *                   disability_status:
+ *                     type: boolean
+ *                     example: false
+ *               zkData:
+ *                 type: object
+ *                 description: ZK verification results
+ *                 properties:
+ *                   zkFlags:
+ *                     type: array
+ *                     items:
+ *                       type: integer
+ *                     example: [0, 0, 0, 0, 0, 1, 0, 0, 0, 0]
+ *                   incomeBracket:
+ *                     type: string
+ *                     example: "M2"
+ *                   isSignatureValid:
+ *                     type: boolean
+ *                     example: true
+ *                   isDataAuthentic:
+ *                     type: boolean
+ *                     example: true
+ *     responses:
+ *       200:
+ *         description: Profile updated successfully with ZK verification data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Profile updated successfully with ZK verification"
+ *       400:
+ *         description: Invalid input parameters or validation failed
+ *       500:
+ *         description: Database update failed
+ */
+app.post('/api/profile/update-with-zk', async (req, res) => {
+    try {
+        const { userId, profileData, zkData } = req.body;
+
+        console.log('Updating complete profile with ZK data for user:', userId);
+
+        // Validate required parameters
+        if (!userId) {
+            return res.status(400).json({
+                success: false,
+                error: 'userId is required'
+            });
+        }
+
+        if (!profileData || typeof profileData !== 'object') {
+            return res.status(400).json({
+                success: false,
+                error: 'profileData is required and must be an object'
+            });
+        }
+
+        // Validate ZK data if provided
+        if (zkData) {
+            const { zkFlags, incomeBracket, isSignatureValid, isDataAuthentic } = zkData;
+            
+            if (!Array.isArray(zkFlags) || zkFlags.length !== 10) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'zkFlags must be an array of 10 elements'
+                });
+            }
+
+            if (typeof isSignatureValid !== 'boolean' || typeof isDataAuthentic !== 'boolean') {
+                return res.status(400).json({
+                    success: false,
+                    error: 'isSignatureValid and isDataAuthentic must be boolean values'
+                });
+            }
+
+            if (!isSignatureValid || !isDataAuthentic) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'ZK verification failed - signature or data is invalid'
+                });
+            }
+        }
+
+        // Prepare update object with profile data
+        const updateData = {
+            ...profileData
+        };
+
+        // Add ZK data if provided
+        if (zkData) {
+            updateData.income_bracket = zkData.incomeBracket;
+            updateData.zk_class_flags = zkData.zkFlags;
+            updateData.is_signature_valid = zkData.isSignatureValid;
+            updateData.is_data_authentic = zkData.isDataAuthentic;
+            console.log(`Including ZK verification: income bracket ${zkData.incomeBracket}`);
+        }
+
+        // Update Supabase profiles table with all data in single transaction
+        const { data, error } = await supabase
+            .from('profiles')
+            .update(updateData)
+            .eq('id', userId)
+            .select();
+
+        if (error) {
+            console.error('Supabase update error:', error);
+            return res.status(500).json({
+                success: false,
+                error: 'Failed to update user profile',
+                details: error.message
+            });
+        }
+
+        if (!data || data.length === 0) {
+            return res.status(404).json({
+                success: false,
+                error: 'User not found'
+            });
+        }
+
+        const message = zkData ? 
+            'Profile updated successfully with ZK verification' : 
+            'Profile updated successfully';
+
+        console.log('✅ Profile update completed for user:', userId);
+
+        res.json({
+            success: true,
+            message: message,
+            updatedProfile: data[0]
+        });
+
+    } catch (error) {
+        console.error('Profile update error:', error);
+        res.status(500).json({
+            success: false,
+            error: 'Internal server error during profile update',
+            details: error.message
         });
     }
 });
