@@ -8,6 +8,11 @@ interface ZKProof {
   public_signals: string[];
 }
 
+interface ZKProof {
+  proof: string;
+  publicSignals: string[];
+}
+
 interface ICVerificationData {
   citizenName: string;
   incomeBracket: string;
