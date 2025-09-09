@@ -15,10 +15,12 @@ This is an AI-powered blockchain-based subsidy distribution platform using React
 ```bash
 cd frontend
 npm run dev        # Development server on localhost:5173
-npm run build      # Production build
-npm run lint       # ESLint checking
+npm run build      # TypeScript compilation + production build
+npm run lint       # ESLint checking with TypeScript rules
 npm run preview    # Preview production build
 ```
+
+**Note:** The build process includes TypeScript compilation (`tsc -b`) followed by Vite bundling. Always run lint before committing changes.
 
 ### Backend Services
 ```bash
@@ -48,9 +50,11 @@ npm run test       # Test signature verification
 ### Frontend Structure
 - **React 19** with TypeScript and Vite
 - **Route Guards**: Role-based access (admin/citizen) via `components/auth/RouteGuard.tsx`
-- **Layouts**: `AdminLayout.tsx` and `CitizenLayout.tsx` for consistent UI
-- **State Management**: Custom hooks in `hooks/` directory
+- **Layouts**: `AdminLayout.tsx` and `CitizenLayout.tsx` for consistent UI shells
+- **State Management**: Custom hooks pattern for all business logic
 - **Supabase Integration**: Auth, database, and storage via `lib/supabase.ts`
+- **Styling**: Tailwind CSS v4 with custom utility classes
+- **Type Safety**: Comprehensive TypeScript interfaces throughout
 
 ### Key Frontend Components
 - `pages/Admin.tsx` - Admin dashboard with statistics
@@ -87,25 +91,43 @@ VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 
 ### Authentication Flow
 - All routes use `RouteGuard` component for role-based access
-- User roles stored in Supabase `auth.users.user_metadata.role`
-- Supported roles: `admin` and `citizen`
+- User roles determined by `profiles.is_admin` field in Supabase
+- Automatic redirects: admins → `/admin`, citizens → `/citizen`, unauthenticated → `/login`
+- Loading states during role verification
+
+### Custom Hooks Architecture
+All business logic uses custom hooks with consistent structure: `{ data, loading, error, actions, computed_values }`
+
+- **`useProfile()`** - Full CRUD operations for citizen profiles with validation
+- **`useFileUpload()`** - Admin-only file upload with duplicate detection and sanitization  
+- **`useDeadlineStatus()`** - Real-time deadline monitoring with auto-refresh
+- **`useICVerification()`** - ZK-SNARK proof generation and verification
+- **`useAppSettings()`** - Global app configuration management
+
+### Layout System
+- **Role-based layouts**: `AdminLayout` (blue theme) and `CitizenLayout` (green theme)
+- Dropdown navigation with active page detection using `useLocation()`
+- Click-outside closing behavior with `useRef` and `useEffect`
+- Consistent logout flow and error handling
 
 ### Supabase Integration
-- Database client: `src/lib/supabase.ts`
+- Database client: `src/lib/supabase.ts` with environment variable validation
 - Row Level Security (RLS) enabled on all tables
-- Admin users have elevated permissions for file uploads
+- Admin permissions via `profiles.is_admin` boolean field
+- Real-time subscriptions for status updates
 
-### Custom Hooks Pattern
-- `useProfile()` - Manages citizen profile data
-- `useFileUpload()` - Handles document upload for admins
-- `useDeadlineStatus()` - Manages application deadlines
-- `useICVerification()` - Handles IC verification with ZK proofs
+### ZK Components Architecture
+**Status-Driven UI Components:**
+- **`IncomeVerificationField`** - Main ZK verification trigger with state management
+- **`ZKVerificationBadge`** - Status indicators: `'unverified' | 'loading' | 'verified' | 'error'`
+- **`ZKProcessFlow`** - Educational step-by-step explanation
+- **`ZKProofExplainer`** - Interactive cryptographic proof breakdown
 
-### ZK Proof Generation Flow
-1. User enters IC number in frontend
+**ZK Proof Generation Flow:**
+1. User enters IC number → `IncomeVerificationField` component
 2. Mock LHDN API returns signed income data
-3. ZK Circuit Service generates Groth16 proof
-4. Frontend verifies proof and displays income bracket (not amount)
+3. ZK Circuit Service generates Groth16 proof  
+4. Frontend displays income bracket (privacy-preserving, amount hidden)
 
 ## API Endpoints
 
@@ -144,22 +166,28 @@ Press Ctrl+C to stop all services.
 
 ## Common Development Tasks
 
-### Adding New Components
-- Follow the existing pattern in `components/` with TypeScript interfaces
-- Use custom hooks for state management (see `hooks/` directory)
-- Implement proper loading and error states
+### Frontend Component Development
+- **Follow consistent patterns**: All components use TypeScript interfaces and proper prop typing
+- **Custom hooks first**: Extract all business logic into custom hooks before building UI
+- **Loading states**: Implement `loading` states for all async operations with spinners/skeletons
+- **Error boundaries**: Handle errors gracefully with user-friendly messages
+- **Layout inheritance**: Use `AdminLayout` or `CitizenLayout` for all authenticated pages
 
-### Database Changes
-- All tables use Supabase Row Level Security (RLS)
-- Admin users have elevated permissions via `user_metadata.role`
-- Test permissions with different user roles
+### Form Development Patterns
+- **Validation in hooks**: Put form validation logic in custom hooks, not components
+- **Real-time validation**: Validate on change for better UX (see `useProfile` validation)
+- **Ethereum address validation**: Use existing `validateEthereumAddress` utility
+- **File uploads**: Follow `useFileUpload` pattern for admin-only file operations
 
-### ZK Circuit Development
-- Edit circuits in `zkp/circuits/`
-- Run `./zkp/setup.sh` to recompile and test
-- Use `./zkp/clean.sh` to reset generated files
+### TypeScript Development
+- **Strict typing**: Use interface definitions for all props, state, and API responses
+- **No `any` types**: Prefer proper typing over `any` for type safety
+- **ESLint compliance**: Run `npm run lint` to check TypeScript/React rules before committing
 
 ### Debugging Tips
-- Frontend errors: Check browser console and Vite dev server output
-- Backend errors: Check service logs in terminal where `start-all-services.sh` is running  
-- ZK errors: Verify Circom and snarkjs installations, check `zkp/outputs/` directory
+- **Frontend errors**: Check browser console and Vite dev server output
+- **TypeScript errors**: Run `npm run build` to catch compilation issues early
+- **Environment variables**: Check console logs in `lib/supabase.ts` for missing env vars
+- **Route guard issues**: Check `profiles.is_admin` field in Supabase for role problems
+- **Hook debugging**: Add console.logs to custom hooks to trace state changes
+- **Supabase issues**: Check browser Network tab for failed API requests

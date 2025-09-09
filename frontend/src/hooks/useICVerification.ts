@@ -1,10 +1,18 @@
 import { useState, useCallback } from 'react';
+import { supabase } from '../lib/supabase';
+
+interface ZKProof {
+  pi_a: string[];
+  pi_b: string[][];
+  pi_c: string[];
+  public_signals: string[];
+}
 
 interface ICVerificationData {
   citizenName: string;
   incomeBracket: string;
   verificationStatus: 'unverified' | 'loading' | 'verified' | 'error';
-  zkProof?: any;
+  zkProof?: ZKProof;
   errorMessage?: string;
 }
 
@@ -13,10 +21,14 @@ interface ZKVerificationResult {
   citizen_name: string;
   income_bracket: string;
   verification_status: string;
-  zk_proof: any;
+  zk_proof: ZKProof;
   zk_verified: boolean;
+  zk_flags: number[];
+  is_signature_valid: boolean;
+  is_data_authentic: boolean;
   message: string;
   privacy_note: string;
+  note: string;
   error?: string;
 }
 
@@ -70,7 +82,8 @@ export function useICVerification() {
     try {
       console.log('Starting IC verification for:', icNumber);
 
-      const response = await fetch('http://localhost:3002/api/ic-verification', {
+      // Call ZK verification endpoint to generate proof (NO database storage)
+      const zkResponse = await fetch('http://localhost:3002/api/ic-verification', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -78,30 +91,36 @@ export function useICVerification() {
         body: JSON.stringify({ ic: icNumber }),
       });
 
-      const result: ZKVerificationResult = await response.json();
+      const zkResult: ZKVerificationResult = await zkResponse.json();
 
-      if (response.ok && result.success && result.zk_verified) {
-        const successData: ICVerificationData = {
-          citizenName: result.citizen_name,
-          incomeBracket: result.income_bracket,
-          verificationStatus: 'verified',
-          zkProof: result.zk_proof
-        };
-        
-        setVerificationData(successData);
-        return successData;
-      } else {
+      if (!zkResponse.ok || !zkResult.success || !zkResult.zk_verified) {
         const errorData: ICVerificationData = {
-          citizenName: '',
+          citizenName: zkResult.citizen_name || '',
           incomeBracket: '',
           verificationStatus: 'error',
-          errorMessage: result.error || 'Verification failed'
+          errorMessage: zkResult.error || 'ZK verification failed'
         };
         
         setVerificationData(errorData);
         return errorData;
       }
+
+      console.log('✅ ZK proof generated successfully (stored in memory only)');
+      console.log('ZK verification note:', zkResult.note);
+
+      // Return success data with ZK proof stored in memory
+      const successData: ICVerificationData = {
+        citizenName: zkResult.citizen_name,
+        incomeBracket: zkResult.income_bracket,
+        verificationStatus: 'verified',
+        zkProof: zkResult.zk_proof
+      };
+      
+      setVerificationData(successData);
+      return successData;
+
     } catch (error) {
+      console.error('IC verification error:', error);
       const errorData: ICVerificationData = {
         citizenName: '',
         incomeBracket: '',
