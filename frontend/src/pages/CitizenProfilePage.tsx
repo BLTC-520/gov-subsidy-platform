@@ -26,6 +26,15 @@ export default function CitizenProfilePage() {
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [realTimeExpired, setRealTimeExpired] = useState(false);
   const [icNumber, setIcNumber] = useState('');
+  const [zkVerificationData, setZkVerificationData] = useState<{
+    incomeBracket: string;
+    citizenName: string;
+    verified: boolean;
+    zkFlags: number[];
+    isSignatureValid: boolean;
+    isDataAuthentic: boolean;
+    zkProof: any;
+  } | null>(null);
 
   // Initialize form data when profile loads
   useEffect(() => {
@@ -114,11 +123,18 @@ export default function CitizenProfilePage() {
       return;
     }
 
+    // Ensure ZK verification is completed before saving
+    if (!zkVerificationData || !zkVerificationData.verified) {
+      setValidationErrors(['Please complete income verification with ZK-SNARK before saving']);
+      return;
+    }
+
     setSaving(true);
     setSaveSuccess(false);
 
     try {
-      const success = await updateProfile(formData);
+      // Update profile with ZK data included
+      const success = await updateProfile(formData, zkVerificationData);
       
       if (success) {
         setSaveSuccess(true);
@@ -309,8 +325,15 @@ export default function CitizenProfilePage() {
             <IncomeVerificationField
               icNumber={icNumber}
               onVerificationComplete={(data) => {
-                // Store the verification result but don't expose actual income
+                // Store ZK verification data for later submission
                 console.log('Income verification completed:', data);
+                setZkVerificationData(data);
+                // Also update form data with income bracket for display
+                setFormData(prev => ({
+                  ...prev,
+                  // Note: We store the bracket but not the actual income amount
+                  monthly_income: undefined // Keep income private
+                }));
               }}
               disabled={isExpired || realTimeExpired}
             />
@@ -387,13 +410,28 @@ export default function CitizenProfilePage() {
             </div>
 
             {/* Submit Button */}
-            <div className="flex justify-end">
+            <div className="flex flex-col items-end space-y-2">
+              {!zkVerificationData?.verified && (
+                <p className="text-sm text-red-600">
+                  ⚠️ Please complete income verification above before saving
+                </p>
+              )}
+              
+              {zkVerificationData?.verified && (
+                <div className="text-sm text-green-600 flex items-center">
+                  <svg className="h-4 w-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  Income verified (Bracket: {zkVerificationData.incomeBracket}) - Ready to save
+                </div>
+              )}
+              
               <button
                 type="submit"
-                disabled={saving || isExpired || realTimeExpired}
+                disabled={saving || isExpired || realTimeExpired || !zkVerificationData?.verified}
                 className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {saving ? 'Saving...' : 'Save Profile'}
+                {saving ? 'Saving Profile & ZK Data...' : 'Save Profile'}
               </button>
             </div>
           </form>

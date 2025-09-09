@@ -10,6 +10,10 @@ export interface Profile {
   date_of_birth: string | null;
   gender: string | null;
   monthly_income: number | null;
+  income_bracket: string | null; // Added for ZK verification
+  zk_class_flags: number[] | null; // Added for ZK verification
+  is_signature_valid: boolean | null; // Added for ZK verification
+  is_data_authentic: boolean | null; // Added for ZK verification
   household_size: number | null;
   number_of_children: number | null;
   disability_status: boolean | null;
@@ -75,8 +79,19 @@ export const useProfile = () => {
     }
   };
 
-  // Update profile data
-  const updateProfile = async (formData: ProfileFormData) => {
+  // Update profile data (with optional ZK verification data)
+  const updateProfile = async (
+    formData: ProfileFormData, 
+    zkData?: {
+      incomeBracket: string;
+      citizenName: string;
+      verified: boolean;
+      zkFlags: number[];
+      isSignatureValid: boolean;
+      isDataAuthentic: boolean;
+      zkProof: any;
+    } | null
+  ) => {
     try {
       setError(null);
 
@@ -91,23 +106,56 @@ export const useProfile = () => {
         throw new Error('No authenticated user');
       }
 
-      console.log('Updating profile for user:', user.id, 'with data:', formData);
+      // If ZK data is provided, use the comprehensive backend endpoint
+      if (zkData && zkData.verified) {
+        console.log('Updating profile with ZK data via backend API...');
+        
+        const response = await fetch('http://localhost:3002/api/profile/update-with-zk', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            userId: user.id,
+            profileData: formData,
+            zkData: {
+              zkFlags: zkData.zkFlags,
+              incomeBracket: zkData.incomeBracket,
+              isSignatureValid: zkData.isSignatureValid,
+              isDataAuthentic: zkData.isDataAuthentic
+            }
+          }),
+        });
 
-      const { data, error } = await supabase
-        .from('profiles')
-        .update(formData)
-        .eq('id', user.id)
-        .select()
-        .single();
+        const result = await response.json();
 
-      if (error) {
-        console.error('Profile update error:', error);
-        throw error;
+        if (!response.ok || !result.success) {
+          throw new Error(result.error || 'Failed to update profile with ZK data');
+        }
+
+        console.log('✅ Profile updated successfully with ZK verification');
+        setProfile(result.updatedProfile);
+        return true;
+      } else {
+        // Regular profile update without ZK data
+        console.log('Updating profile for user:', user.id, 'with data:', formData);
+
+        const { data, error } = await supabase
+          .from('profiles')
+          .update(formData)
+          .eq('id', user.id)
+          .select()
+          .single();
+
+        if (error) {
+          console.error('Profile update error:', error);
+          throw error;
+        }
+
+        console.log('Profile updated successfully:', data);
+        setProfile(data);
+        return true;
       }
-
-      console.log('Profile updated successfully:', data);
-      setProfile(data);
-      return true;
     } catch (err) {
       console.error('Error updating profile:', err);
       setError(err instanceof Error ? err.message : 'Failed to update profile');
