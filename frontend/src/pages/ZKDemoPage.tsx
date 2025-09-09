@@ -196,7 +196,16 @@ export default function ZKDemoPage() {
     };
   };
 
-  const executeActualCircuit = async (inputs: any) => {
+  interface CircuitInputs {
+    monthly_income: string;
+    signature: string;
+    verification_timestamp: string;
+    public_key: string;
+    ic_hash: string;
+    timestamp_range: string;
+  }
+
+  const executeActualCircuit = async (inputs: CircuitInputs) => {
     try {
       console.log('Executing actual ZK circuit...');
       
