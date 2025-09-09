@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "browser": {
+      "command": "npx",
+      "args": [
+        "@agent-infra/mcp-server-browser@latest",
+        "--executable-path", "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+      ]
+    }
+  }
+}
