@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { CitizenPortalLayout } from "../components/common/CitizenPortalLayout";
 import { useProfile } from "../hooks/useProfile";
 import { useDeadlineStatus } from "../hooks/useDeadlineStatus";
+import { useDraftStatus } from "../hooks/useDraftStatus";
 
 interface CitizenStats {
   applicationStatus: "incomplete" | "pending" | "approved" | "rejected";
@@ -19,6 +20,15 @@ export default function CitizenDashboard() {
   const navigate = useNavigate();
   const { profile, loading: profileLoading } = useProfile();
   const { isExpired, deadline } = useDeadlineStatus();
+  const { 
+    state: applicationState, 
+    message: stateMessage, 
+    actionText, 
+    actionVariant,
+    completionPercentage: draftCompletion,
+    isSignificantDraft,
+    clearDraft 
+  } = useDraftStatus();
 
   const [stats, setStats] = useState<CitizenStats>({
     applicationStatus: "incomplete",
@@ -235,18 +245,30 @@ export default function CitizenDashboard() {
           </motion.div>
         )}
 
-        {/* Application Action Card */}
+        {/* Professional Application Action Card */}
         {!isExpired ? (
           <motion.div
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-blue-50 border border-blue-200 rounded-lg shadow-md p-6"
+            className={`border rounded-lg shadow-md p-6 ${
+              actionVariant === 'green' ? 'bg-green-50 border-green-200' :
+              actionVariant === 'blue' ? 'bg-blue-50 border-blue-200' :
+              'bg-gray-50 border-gray-200'
+            }`}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center">
-                <div className="p-2 rounded-lg bg-blue-100">
+                <div className={`p-2 rounded-lg ${
+                  actionVariant === 'green' ? 'bg-green-100' :
+                  actionVariant === 'blue' ? 'bg-blue-100' :
+                  'bg-gray-100'
+                }`}>
                   <svg
-                    className="h-5 w-5 text-blue-600"
+                    className={`h-5 w-5 ${
+                      actionVariant === 'green' ? 'text-green-600' :
+                      actionVariant === 'blue' ? 'text-blue-600' :
+                      'text-gray-600'
+                    }`}
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -260,112 +282,46 @@ export default function CitizenDashboard() {
                   </svg>
                 </div>
                 <div className="ml-4">
-                  {(() => {
-                    // Check if user has any application data (excluding eligibility_score)
-                    const hasApplicationData =
-                      profile &&
-                      (profile.full_name ||
-                        profile.date_of_birth ||
-                        profile.gender ||
-                        profile.state ||
-                        profile.household_size ||
-                        profile.number_of_children !== null ||
-                        profile.wallet_address ||
-                        profile.nric);
-
-                    if (hasApplicationData && !profile?.eligibility_score) {
-                      // Has saved data but not completed
-                      return (
-                        <>
-                          <h3 className="font-semibold text-blue-800">
-                            Continue Your Application
-                          </h3>
-                          <p className="text-sm text-blue-700">
-                            You have a saved application. Continue where you
-                            left off to complete your submission.
-                          </p>
-                        </>
-                      );
-                    } else if (!hasApplicationData) {
-                      // No application data - fresh start
-                      return (
-                        <>
-                          <h3 className="font-semibold text-blue-800">
-                            Start Your Application
-                          </h3>
-                          <p className="text-sm text-blue-700">
-                            Begin your subsidy application process. Complete all
-                            required information to qualify.
-                          </p>
-                        </>
-                      );
-                    } else {
-                      // Has eligibility score - completed
-                      return (
-                        <>
-                          <h3 className="font-semibold text-green-800">
-                            Application Completed
-                          </h3>
-                          <p className="text-sm text-green-700">
-                            Your application has been submitted and processed.
-                            View your profile for details.
-                          </p>
-                        </>
-                      );
-                    }
-                  })()}
+                  <h3 className={`font-semibold ${
+                    actionVariant === 'green' ? 'text-green-800' :
+                    actionVariant === 'blue' ? 'text-blue-800' :
+                    'text-gray-800'
+                  }`}>
+                    {applicationState === 'NEW' && 'Start Your Application'}
+                    {applicationState === 'DRAFT' && `Continue Your Draft (${draftCompletion}% complete)`}
+                    {applicationState === 'SUBMITTED' && (profile?.eligibility_score ? 'Application Completed' : 'Continue Your Application')}
+                  </h3>
+                  <p className={`text-sm ${
+                    actionVariant === 'green' ? 'text-green-700' :
+                    actionVariant === 'blue' ? 'text-blue-700' :
+                    'text-gray-700'
+                  }`}>
+                    {stateMessage}
+                  </p>
+                  {applicationState === 'DRAFT' && isSignificantDraft && (
+                    <button
+                      onClick={clearDraft}
+                      className="text-xs text-red-600 hover:text-red-800 underline mt-1"
+                    >
+                      Clear Draft
+                    </button>
+                  )}
                 </div>
               </div>
-              {(() => {
-                const hasApplicationData =
-                  profile &&
-                  (profile.full_name ||
-                    profile.date_of_birth ||
-                    profile.gender ||
-                    profile.state ||
-                    profile.household_size ||
-                    profile.number_of_children !== null ||
-                    profile.wallet_address ||
-                    profile.nric);
-
-                if (hasApplicationData && !profile?.eligibility_score) {
-                  // Show "Edit Application" button
-                  return (
-                    <motion.button
-                      onClick={() => navigate("/citizen/application")}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition-colors text-sm font-medium"
-                    >
-                      Edit Application
-                    </motion.button>
-                  );
-                } else if (!hasApplicationData) {
-                  // Show "Start Application" button
-                  return (
-                    <motion.button
-                      onClick={() => navigate("/citizen/application")}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors text-sm font-medium"
-                    >
-                      Start Application
-                    </motion.button>
-                  );
-                } else {
-                  // Show "View Profile" button for completed applications
-                  return (
-                    <motion.button
-                      onClick={() => navigate("/citizen/profile")}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 transition-colors text-sm font-medium"
-                    >
-                      View Profile
-                    </motion.button>
-                  );
-                }
-              })()}
+              <div className="flex flex-col gap-2">
+                <motion.button
+                  onClick={() => navigate("/citizen/application")}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className={`px-4 py-2 text-white rounded-md transition-colors text-sm font-medium ${
+                    actionVariant === 'green' ? 'bg-green-600 hover:bg-green-700' :
+                    actionVariant === 'blue' ? 'bg-blue-600 hover:bg-blue-700' :
+                    'bg-gray-600 hover:bg-gray-700'
+                  }`}
+                >
+                  {actionText}
+                </motion.button>
+              </div>
             </div>
           </motion.div>
         ) : (
@@ -464,7 +420,7 @@ export default function CitizenDashboard() {
 
           <StatCard
             title="Profile Completion"
-            value={`${Math.round(
+            value={`${applicationState === 'SUBMITTED' ? Math.round(
               (((profile?.full_name ? 1 : 0) +
                 (profile?.date_of_birth ? 1 : 0) +
                 (profile?.gender ? 1 : 0) +
@@ -472,11 +428,12 @@ export default function CitizenDashboard() {
                 (profile?.household_size ? 1 : 0) +
                 (profile?.number_of_children !== null ? 1 : 0) +
                 (profile?.wallet_address ? 1 : 0)) /
-                7) *
-                100
-            )}%`}
+                7) * 100
+            ) : draftCompletion}%`}
             color="violet"
-            subtitle="Complete all fields to qualify"
+            subtitle={applicationState === 'NEW' ? 'Start your application' : 
+                     applicationState === 'DRAFT' ? `Draft: ${draftCompletion}% complete` : 
+                     'Complete all fields to qualify'}
             icon={
               <svg
                 className="h-6 w-6"
@@ -506,123 +463,68 @@ export default function CitizenDashboard() {
             Quick Actions
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {(() => {
-              const hasApplicationData =
-                profile &&
-                (profile.full_name ||
-                  profile.date_of_birth ||
-                  profile.gender ||
-                  profile.state ||
-                  profile.household_size ||
-                  profile.number_of_children !== null ||
-                  profile.wallet_address ||
-                  profile.nric);
-
-              if (isExpired) {
-                // Show disabled button when expired
-                return (
-                  <div className="flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-900/20 rounded-xl border border-gray-200 dark:border-gray-800 opacity-50">
-                    <svg
-                      className="h-5 w-5 text-gray-400 mr-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    <span className="text-gray-500 dark:text-gray-400 font-medium">
-                      Application Expired
-                    </span>
-                  </div>
-                );
-              } else if (hasApplicationData && !profile?.eligibility_score) {
-                // Show "Edit Application" for saved but incomplete applications
-                return (
-                  <motion.button
-                    onClick={() => navigate("/citizen/application")}
-                    whileHover={{ scale: 1.02, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="flex items-center justify-center p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors"
-                  >
-                    <svg
-                      className="h-5 w-5 text-blue-600 mr-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                      />
-                    </svg>
-                    <span className="text-blue-700 dark:text-blue-400 font-medium">
-                      Edit Application
-                    </span>
-                  </motion.button>
-                );
-              } else if (!hasApplicationData) {
-                // Show "Start Application" for new applications
-                return (
-                  <motion.button
-                    onClick={() => navigate("/citizen/application")}
-                    whileHover={{ scale: 1.02, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="flex items-center justify-center p-4 bg-green-50 dark:bg-green-900/20 rounded-xl border border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
-                  >
-                    <svg
-                      className="h-5 w-5 text-green-600 mr-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 4v16m8-8H4"
-                      />
-                    </svg>
-                    <span className="text-green-700 dark:text-green-400 font-medium">
-                      Start Application
-                    </span>
-                  </motion.button>
-                );
-              } else {
-                // Show "View Application" for completed applications
-                return (
-                  <motion.button
-                    onClick={() => navigate("/citizen/profile")}
-                    whileHover={{ scale: 1.02, y: -2 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-900/20 rounded-xl border border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-900/30 transition-colors"
-                  >
-                    <svg
-                      className="h-5 w-5 text-gray-600 mr-2"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                      />
-                    </svg>
-                    <span className="text-gray-700 dark:text-gray-400 font-medium">
-                      View Application
-                    </span>
-                  </motion.button>
-                );
-              }
-            })()}
+            {isExpired ? (
+              // Show disabled button when expired
+              <div className="flex items-center justify-center p-4 bg-gray-50 dark:bg-gray-900/20 rounded-xl border border-gray-200 dark:border-gray-800 opacity-50">
+                <svg
+                  className="h-5 w-5 text-gray-400 mr-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <span className="text-gray-500 dark:text-gray-400 font-medium">
+                  Application Expired
+                </span>
+              </div>
+            ) : (
+              // Professional state-based action button
+              <motion.button
+                onClick={() => navigate("/citizen/application")}
+                whileHover={{ scale: 1.02, y: -2 }}
+                whileTap={{ scale: 0.98 }}
+                className={`flex items-center justify-center p-4 rounded-xl border transition-colors ${
+                  actionVariant === 'green' 
+                    ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800 hover:bg-green-100 dark:hover:bg-green-900/30'
+                    : actionVariant === 'blue'
+                    ? 'bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800 hover:bg-blue-100 dark:hover:bg-blue-900/30' 
+                    : 'bg-gray-50 dark:bg-gray-900/20 border-gray-200 dark:border-gray-800 hover:bg-gray-100 dark:hover:bg-gray-900/30'
+                }`}
+              >
+                <svg
+                  className={`h-5 w-5 mr-2 ${
+                    actionVariant === 'green' ? 'text-green-600' :
+                    actionVariant === 'blue' ? 'text-blue-600' : 
+                    'text-gray-600'
+                  }`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d={applicationState === 'NEW' ? "M12 4v16m8-8H4" : 
+                       applicationState === 'DRAFT' ? "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" :
+                       "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"}
+                  />
+                </svg>
+                <span className={`font-medium ${
+                  actionVariant === 'green' ? 'text-green-700 dark:text-green-400' :
+                  actionVariant === 'blue' ? 'text-blue-700 dark:text-blue-400' :
+                  'text-gray-700 dark:text-gray-400'
+                }`}>
+                  {actionText}
+                </span>
+              </motion.button>
+            )}
 
             <motion.button
               onClick={() => navigate("/citizen/profile")}

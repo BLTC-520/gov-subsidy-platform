@@ -119,6 +119,71 @@ export const useFormPersistence = () => {
     return Object.keys(formData).length > 0;
   }, [formData]);
 
+  // Get completion percentage for current draft
+  const getDraftCompletion = useCallback(() => {
+    if (!hasPersistedData()) return 0;
+    
+    const meaningfulFields: (keyof PersistedFormData)[] = [
+      'full_name', 'nric', 'date_of_birth', 'gender', 'state', 
+      'monthly_income', 'household_size', 'number_of_children', 
+      'wallet_address', 'zkVerificationData'
+    ];
+
+    const filledFields = meaningfulFields.filter(field => {
+      const value = formData[field];
+      
+      if (field === 'number_of_children') {
+        return value !== null && value !== undefined;
+      }
+      if (field === 'zkVerificationData') {
+        return value && typeof value === 'object' && value.verified;
+      }
+      if (typeof value === 'string') {
+        return value.trim().length > 0;
+      }
+      if (typeof value === 'number') {
+        return value > 0;
+      }
+      
+      return !!value;
+    });
+
+    return Math.round((filledFields.length / meaningfulFields.length) * 100);
+  }, [formData, hasPersistedData]);
+
+  // Check if current draft is significant enough to show "Continue" 
+  const isDraftSignificant = useCallback(() => {
+    const completion = getDraftCompletion();
+    const meaningfulFields = ['full_name', 'nric', 'date_of_birth', 'gender', 'state'];
+    const filledCount = meaningfulFields.filter(field => {
+      const value = formData[field as keyof PersistedFormData];
+      return value && typeof value === 'string' && value.trim().length > 0;
+    }).length;
+    
+    // Significant if 30%+ complete OR 3+ meaningful fields filled
+    return completion >= 30 || filledCount >= 3;
+  }, [formData, getDraftCompletion]);
+
+  // Get draft summary for user display
+  const getDraftSummary = useCallback(() => {
+    const completion = getDraftCompletion();
+    const hasName = formData.full_name && formData.full_name.trim().length > 0;
+    const hasIC = formData.nric && formData.nric.trim().length > 0;
+    const hasZK = formData.zkVerificationData && formData.zkVerificationData.verified;
+    
+    return {
+      completion,
+      hasName,
+      hasIC,
+      hasZK,
+      isSignificant: isDraftSignificant(),
+      fieldCount: Object.keys(formData).filter(key => {
+        const value = formData[key as keyof PersistedFormData];
+        return value !== null && value !== undefined && value !== '';
+      }).length
+    };
+  }, [formData, getDraftCompletion, isDraftSignificant]);
+
   return {
     formData,
     isLoaded,
@@ -127,5 +192,8 @@ export const useFormPersistence = () => {
     clearPersistedData,
     getFieldValue,
     hasPersistedData,
+    getDraftCompletion,
+    isDraftSignificant,
+    getDraftSummary,
   };
 };

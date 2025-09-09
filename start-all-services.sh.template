@@ -16,6 +16,11 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # SECURITY: Set your environment variables here or in a .env file
+if [ -f ".env" ]; then
+    echo "Loading environment variables from .env file..."
+    source .env
+fi
+
 # DO NOT commit actual credentials to git!
 SUPABASE_URL="${SUPABASE_URL:-YOUR_SUPABASE_PROJECT_URL}"
 SUPABASE_SERVICE_ROLE_KEY="${SUPABASE_SERVICE_ROLE_KEY:-YOUR_SUPABASE_SERVICE_ROLE_KEY}"
