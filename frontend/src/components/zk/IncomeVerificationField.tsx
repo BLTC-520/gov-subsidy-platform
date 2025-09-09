@@ -15,7 +15,7 @@ interface IncomeVerificationFieldProps {
   disabled?: boolean;
 }
 
-interface ZKProof {
+interface ZKProof extends Record<string, unknown> {
   pi_a: string[];
   pi_b: string[][];
   pi_c: string[];
@@ -226,11 +226,6 @@ export function IncomeVerificationField({
                     VERIFICATION_STEPS.findIndex(
                       (s) => s.step === currentStep
                     ) > index;
-                  const isIdle =
-                    currentStep === "idle" ||
-                    VERIFICATION_STEPS.findIndex(
-                      (s) => s.step === currentStep
-                    ) < index;
 
                   return (
                     <div

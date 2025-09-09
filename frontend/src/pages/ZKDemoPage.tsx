@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { CitizenLayout } from "../components/common/CitizenLayout";
+import { CitizenPortalLayout } from "../components/common/CitizenPortalLayout";
 
 interface DemoStep {
   id: number;
@@ -361,7 +361,7 @@ export default function ZKDemoPage() {
   };
 
   return (
-    <CitizenLayout title="ZK Signature Verification Demo">
+    <CitizenPortalLayout title="ZK Signature Verification Demo">
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Demo Header */}
         <div className="bg-white rounded-lg shadow-md p-6">
@@ -639,6 +639,6 @@ export default function ZKDemoPage() {
           </div>
         </div>
       )}
-    </CitizenLayout>
+    </CitizenPortalLayout>
   );
 }

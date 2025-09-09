@@ -1,48 +1,54 @@
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../lib/supabase';
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "../../lib/supabase";
 
 interface RouteGuardProps {
   children: React.ReactNode;
-  requiredRole: 'admin' | 'citizen';
+  requiredRole: "admin" | "citizen";
 }
 
-export const RouteGuard: React.FC<RouteGuardProps> = ({ children, requiredRole }) => {
+export const RouteGuard: React.FC<RouteGuardProps> = ({
+  children,
+  requiredRole,
+}) => {
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
     const checkAuthorization = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
         if (!user) {
-          navigate('/login');
+          navigate("/login");
           return;
         }
 
         const { data: profile } = await supabase
-          .from('profiles')
-          .select('is_admin')
-          .eq('id', user.id)
+          .from("profiles")
+          .select("is_admin")
+          .eq("id", user.id)
           .single();
 
-        const isAdmin = profile?.is_admin === true || String(profile?.is_admin) === 'true';
+        const isAdmin =
+          profile?.is_admin === true || String(profile?.is_admin) === "true";
 
-        if (requiredRole === 'admin' && !isAdmin) {
-          navigate('/citizen');
+        if (requiredRole === "admin" && !isAdmin) {
+          navigate("/citizen/dashboard");
           return;
         }
 
-        if (requiredRole === 'citizen' && isAdmin) {
-          navigate('/admin');
+        if (requiredRole === "citizen" && isAdmin) {
+          navigate("/admin");
           return;
         }
 
         setIsAuthorized(true);
       } catch (error) {
-        console.error('Route guard error:', error);
-        navigate('/login');
+        console.error("Route guard error:", error);
+        navigate("/login");
       }
     };
 
