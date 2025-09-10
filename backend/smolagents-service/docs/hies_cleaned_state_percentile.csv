@@ -1,0 +1,161 @@
+state,income_group,income
+Johor,B1,2740.0
+Johor,B2,3803.0
+Johor,B3,4734.0
+Johor,B4,5689.0
+Johor,M1,6825.0
+Johor,M2,8168.0
+Johor,M3,9645.0
+Johor,M4,11785.0
+Johor,T1,15139.0
+Johor,T2,50049.0
+Kedah,B1,2035.0
+Kedah,B2,2633.0
+Kedah,B3,3135.0
+Kedah,B4,3723.0
+Kedah,M1,4366.0
+Kedah,M2,5108.0
+Kedah,M3,6006.0
+Kedah,M4,7338.0
+Kedah,T1,9859.0
+Kedah,T2,34066.0
+Kelantan,B1,1672.0
+Kelantan,B2,2173.0
+Kelantan,B3,2603.0
+Kelantan,B4,3040.0
+Kelantan,M1,3586.0
+Kelantan,M2,4239.0
+Kelantan,M3,5066.0
+Kelantan,M4,6390.0
+Kelantan,T1,9292.0
+Kelantan,T2,27731.0
+Melaka,B1,2769.0
+Melaka,B2,3636.0
+Melaka,B3,4375.0
+Melaka,B4,5172.0
+Melaka,M1,6165.0
+Melaka,M2,7344.0
+Melaka,M3,8955.0
+Melaka,M4,11054.0
+Melaka,T1,14749.0
+Melaka,T2,50461.0
+Pahang,B1,2527.0
+Pahang,B2,3199.0
+Pahang,B3,3622.0
+Pahang,B4,4139.0
+Pahang,M1,4709.0
+Pahang,M2,5462.0
+Pahang,M3,6366.0
+Pahang,M4,7711.0
+Pahang,T1,9971.0
+Pahang,T2,24278.0
+Negeri Sembilan,B1,2335.0
+Negeri Sembilan,B2,3103.0
+Negeri Sembilan,B3,3640.0
+Negeri Sembilan,B4,4300.0
+Negeri Sembilan,M1,5175.0
+Negeri Sembilan,M2,6239.0
+Negeri Sembilan,M3,7594.0
+Negeri Sembilan,M4,9382.0
+Negeri Sembilan,T1,12826.0
+Negeri Sembilan,T2,32408.0
+Pulau Pinang,B1,2697.0
+Pulau Pinang,B2,3622.0
+Pulau Pinang,B3,4595.0
+Pulau Pinang,B4,5536.0
+Pulau Pinang,M1,6459.0
+Pulau Pinang,M2,7588.0
+Pulau Pinang,M3,9079.0
+Pulau Pinang,M4,11334.0
+Pulau Pinang,T1,15231.0
+Pulau Pinang,T2,46054.0
+Perak,B1,1985.0
+Perak,B2,2650.0
+Perak,B3,3230.0
+Perak,B4,3762.0
+Perak,M1,4462.0
+Perak,M2,5293.0
+Perak,M3,6356.0
+Perak,M4,7819.0
+Perak,T1,10529.0
+Perak,T2,20469.0
+Perlis,B1,2152.0
+Perlis,B2,2797.0
+Perlis,B3,3370.0
+Perlis,B4,4069.0
+Perlis,M1,4697.0
+Perlis,M2,5338.0
+Perlis,M3,6316.0
+Perlis,M4,7662.0
+Perlis,T1,10078.0
+Perlis,T2,25506.0
+Selangor,B1,4324.0
+Selangor,B2,5661.0
+Selangor,B3,6998.0
+Selangor,B4,8312.0
+Selangor,M1,9905.0
+Selangor,M2,11357.0
+Selangor,M3,13069.0
+Selangor,M4,15540.0
+Selangor,T1,20990.0
+Selangor,T2,85662.0
+Terengganu,B1,3150.0
+Terengganu,B2,3804.0
+Terengganu,B3,4485.0
+Terengganu,B4,5116.0
+Terengganu,M1,5837.0
+Terengganu,M2,6631.0
+Terengganu,M3,7593.0
+Terengganu,M4,9125.0
+Terengganu,T1,12348.0
+Terengganu,T2,40103.0
+Sabah,B1,1980.0
+Sabah,B2,2581.0
+Sabah,B3,3177.0
+Sabah,B4,3799.0
+Sabah,M1,4536.0
+Sabah,M2,5471.0
+Sabah,M3,6607.0
+Sabah,M4,8435.0
+Sabah,T1,11626.0
+Sabah,T2,43629.0
+Sarawak,B1,2055.0
+Sarawak,B2,2713.0
+Sarawak,B3,3395.0
+Sarawak,B4,4123.0
+Sarawak,M1,4934.0
+Sarawak,M2,5945.0
+Sarawak,M3,7193.0
+Sarawak,M4,9102.0
+Sarawak,T1,12371.0
+Sarawak,T2,33426.0
+W.P. Kuala Lumpur,B1,4616.0
+W.P. Kuala Lumpur,B2,6195.0
+W.P. Kuala Lumpur,B3,7492.0
+W.P. Kuala Lumpur,B4,8825.0
+W.P. Kuala Lumpur,M1,10165.0
+W.P. Kuala Lumpur,M2,11796.0
+W.P. Kuala Lumpur,M3,13759.0
+W.P. Kuala Lumpur,M4,16628.0
+W.P. Kuala Lumpur,T1,21848.0
+W.P. Kuala Lumpur,T2,120000.0
+W.P. Labuan,B1,3672.0
+W.P. Labuan,B2,4667.0
+W.P. Labuan,B3,5345.0
+W.P. Labuan,B4,6012.0
+W.P. Labuan,M1,6868.0
+W.P. Labuan,M2,7814.0
+W.P. Labuan,M3,8975.0
+W.P. Labuan,M4,10724.0
+W.P. Labuan,T1,13942.0
+W.P. Labuan,T2,36995.0
+W.P. Putrajaya,B1,4930.0
+W.P. Putrajaya,B2,6241.0
+W.P. Putrajaya,B3,7753.0
+W.P. Putrajaya,B4,8910.0
+W.P. Putrajaya,M1,10001.0
+W.P. Putrajaya,M2,11234.0
+W.P. Putrajaya,M3,13599.0
+W.P. Putrajaya,M4,17893.0
+W.P. Putrajaya,T1,25983.0
+W.P. Putrajaya,T2,69563.0
