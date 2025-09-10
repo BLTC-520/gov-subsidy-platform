@@ -191,3 +191,5 @@ Press Ctrl+C to stop all services.
 - **Route guard issues**: Check `profiles.is_admin` field in Supabase for role problems
 - **Hook debugging**: Add console.logs to custom hooks to trace state changes
 - **Supabase issues**: Check browser Network tab for failed API requests
+- @backend/smolagents-service/spec/ , this folder is the specification for buiding the @backend/smolagents-service/ , always refer to this folder.
+- We doing @backend/smolagents-service/spec/tasks.md , task by task, and every task will go through test before we commit on git.

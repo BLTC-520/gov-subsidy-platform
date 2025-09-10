@@ -20,6 +20,13 @@ Thumbs.db
 .vscode/
 .idea/
 
+# Python Virtual Environments
+backend/venv/
+**/venv/
+**/__pycache__/
+*.pyc
+*.pyo
+
 # Service management scripts 
 start-all-services.sh
 stop-all-services.sh

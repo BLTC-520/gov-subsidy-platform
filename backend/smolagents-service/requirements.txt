@@ -1,0 +1,37 @@
+smolagents[toolkit]
+smolagents[litellm]
+markdownify
+duckduckgo-search
+spaces
+gradio-tools
+langchain
+langchain-community
+langchain-huggingface
+langchain-openai
+langchain-chroma
+faiss-cpu
+requests
+chromadb
+openai
+litellm
+transformers
+smolagents[transformers]
+
+# for loading the env
+python-dotenv
+
+# MongoDB config
+pymongo
+
+# AgenticRag Needed
+pandas 
+sentence-transformers 
+datasets
+rank_bm25
+unstructured-client
+unstructured[all-docs]
+supabase
+tavily-python
+fastapi
+uvicorn[standard]
+websockets
