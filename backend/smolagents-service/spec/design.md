@@ -1052,7 +1052,7 @@ class PolicyResearchAgent(Agent):
 class DataValidationService:
     """Rule-based data validation - no LLM needed"""
     def validate_income_eligibility(self, income_bracket: str) -> dict:
-        eligible_brackets = ["B40", "M40-M1", "M40-M2"]
+        eligible_brackets = ["B40"] 
         return {
             "eligible": income_bracket in eligible_brackets,
             "confidence": 1.0,  # 100% confidence in rule-based logic
