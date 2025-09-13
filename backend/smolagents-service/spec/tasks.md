@@ -86,12 +86,21 @@
   - _Requirements: 1.4, 4.3_
   - **Files**: `tools/eligibility_score_tool.py`, `tests/test_eligibility_score_tool.py`, `tests/test_eligibility_score_tool_integration.py`
 
-- [ ] 2.4 Implement basic ChromaDB retriever tool
-  - Create ChromaDBRetrieverTool class extending Tool
-  - Implement basic semantic search functionality
-  - Add error handling for ChromaDB unavailable scenarios
-  - Test with mock ChromaDB collection
+- [x] 2.4 Implement basic ChromaDB retriever tool
+
+  - ✅ Create ChromaDBRetrieverTool class extending Tool (with proper smolagents interface)
+  - ✅ Implement semantic search functionality using ChromaDB + OpenAI embeddings
+  - ✅ Load document chunks from existing MongoDB RAG_database.doc_chunks collection
+  - ✅ Add error handling for ChromaDB unavailable scenarios (graceful degradation)
+  - ✅ Create comprehensive unit tests for initialization, MongoDB loading, search functionality
+  - ✅ Add integration tests with existing project patterns
+  - ✅ Implement structured output format compatible with agent workflows
+  - ✅ Add backward compatibility via __call__ method for smolagents interface  
+  - ✅ Environment-based configuration using .env variables
+  - ✅ Simplified implementation without BM25 complexity (semantic search only)
+  - ✅ Production-ready error handling and logging
   - _Requirements: 2.1, 2.2, 2.4_
+  - **Files**: `tools/chromadb_retriever_tool.py`, `tests/test_chromadb_retriever_tool.py`, `tests/test_chromadb_integration.py`, `demo_chromadb_real.py`
 
 ### 3. Plan Review Infrastructure
 

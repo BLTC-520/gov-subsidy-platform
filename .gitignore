@@ -27,6 +27,10 @@ backend/venv/
 *.pyc
 *.pyo
 
+chroma_db/
+./chroma_db/
+**/chroma_db/
+
 # Service management scripts 
 start-all-services.sh
 stop-all-services.sh
