@@ -34,3 +34,6 @@ chroma_db/
 # Service management scripts 
 start-all-services.sh
 stop-all-services.sh
+
+# Artifacts dependencies
+artifacts/.deps/npm/

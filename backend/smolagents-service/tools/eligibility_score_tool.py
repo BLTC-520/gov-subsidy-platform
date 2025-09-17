@@ -93,48 +93,64 @@ class EligibilityScoreTool(Tool):
     }
     
     def __init__(self, csv_file_path: Optional[str] = None):
-        """Initialize scoring tool with CSV data and national fallback thresholds"""
+        """Initialize scoring tool with FYP state median burden approach"""
         super().__init__()
         self.logger = logging.getLogger(__name__)
         
         # Load CSV state income data
         self.csv_file_path = csv_file_path or os.path.join(
-            os.path.dirname(__file__), "..", "docs", "hies_cleaned_state_percentile.csv"
+            os.path.dirname(__file__), "..", "docs", "data_cleaning", "hies_cleaned_state_percentile.csv"
         )
         self.state_income_data = self._load_csv_data()
         
         # National fallback thresholds from MalaysianIncomeClassifier.circom
-        # Source: zkp/circuits/MalaysianIncomeClassifier.circom lines 38-47
         self.national_thresholds = {
             'B1': 2560, 'B2': 3439, 'B3': 4309, 'B4': 5249,
             'M1': 6339, 'M2': 7689, 'M3': 9449, 'M4': 11819,
-            'T1': 15869, 'T2': 20000  # Estimated upper bound for T2
+            'T1': 15869, 'T2': 20000
         }
         
-        # Fixed Adult Equivalent weights (not configurable per requirements)
+        # FYP: State median burden values (calculated from HIES data, AE=3.0)
+        self.state_median_burdens = {
+            'Johor': 0.000403,
+            'Kedah': 0.000637,
+            'Kelantan': 0.000772,
+            'Melaka': 0.000448,
+            'Negeri Sembilan': 0.000530,
+            'Pahang': 0.000593,
+            'Perak': 0.000620,
+            'Perlis': 0.000600,
+            'Pulau Pinang': 0.000430,
+            'Sabah': 0.000605,
+            'Sarawak': 0.000556,
+            'Selangor': 0.000284,
+            'Terengganu': 0.000483,
+            'W.P. Kuala Lumpur': 0.000275,
+            'W.P. Labuan': 0.000410,
+            'W.P. Putrajaya': 0.000284,
+        }
+        
+        # National fallback median
+        self.national_median_burden = 0.000507
+        
+        # Fixed Adult Equivalent weights
         self.OTHER_ADULT_WEIGHT = 0.5
         self.CHILD_WEIGHT = 0.3
         
-        # Final scoring weights
-        self.BURDEN_WEIGHT = 0.55
-        self.DOCUMENTATION_WEIGHT = 0.25
-        self.DISABILITY_WEIGHT = 0.20
-        
-        # Tier-based scoring ranges
-        self.tier_ranges = {
-            'B40': {'min': 70, 'max': 100, 'groups': ['B1', 'B2', 'B3', 'B4']},
-            'M40_LOWER': {'min': 40, 'max': 70, 'groups': ['M1', 'M2']},
-            'M40_UPPER': {'min': 10, 'max': 40, 'groups': ['M3', 'M4']},
-            'T20': {'min': 0, 'max': 15, 'groups': ['T1', 'T2']}
+        # FYP: Policy-based base scores by income tier
+        self.base_scores = {
+            'B40': 60,      # B1, B2, B3, B4
+            'M40-M1': 40,   # M1, M2  
+            'M40-M2': 20,   # M3, M4
+            'T20': 0        # T1, T2
         }
         
-        # Burden ratio thresholds - MARKED FOR TESTING
-        # These values need validation with real data
-        self.burden_thresholds = {
-            'B40': {'high': 1.5, 'med': 1.2, 'base': 1.0},
-            'M40_LOWER': {'high': 1.3, 'med': 1.1, 'base': 1.0},
-            'M40_UPPER': {'high': 1.2, 'med': 1.0, 'base': 0.8},
-            'T20': {'high': 1.1, 'med': 1.0, 'base': 0.9}
+        # Income bracket to eligibility class mapping
+        self.bracket_to_class = {
+            'B1': 'B40', 'B2': 'B40', 'B3': 'B40', 'B4': 'B40',
+            'M1': 'M40-M1', 'M2': 'M40-M1',
+            'M3': 'M40-M2', 'M4': 'M40-M2',
+            'T1': 'T20', 'T2': 'T20'
         }
         
         # Required fields for scoring
@@ -206,58 +222,106 @@ class EligibilityScoreTool(Tool):
             # Validate and extract required fields
             missing_fields = self._check_missing_fields(applicant_data)
             
-            # Calculate burden score (55% weight)
+            # FYP: Calculate final score using corrected formula
             burden_result = self._calculate_burden_score(applicant_data)
             
-            # Calculate documentation score (25% weight)
-            documentation_score = self._calculate_documentation_score(applicant_data)
+            # Final score is already calculated in burden_result.score
+            final_score = burden_result.score
             
-            # Calculate disability score (20% weight) 
+            # Get component scores for breakdown
+            documentation_score = self._calculate_documentation_score(applicant_data)
             disability_score = self._calculate_disability_score(applicant_data)
             
-            # Apply weights and calculate final score
-            weighted_burden = burden_result.score * self.BURDEN_WEIGHT
-            weighted_documentation = documentation_score * self.DOCUMENTATION_WEIGHT
-            weighted_disability = disability_score * self.DISABILITY_WEIGHT
+            # Create FYP breakdown with correct formula components
+            base_score = self._get_base_score(applicant_data.get('income_bracket', ''))
             
-            final_score = weighted_burden + weighted_documentation + weighted_disability
+            # Check if this was a disability auto-qualification
+            if burden_result.tier_range == "Disability Auto-Qualification":
+                breakdown = ScoringBreakdown(
+                    burden_score=0,
+                    documentation_score=0,
+                    disability_score=100,
+                    weighted_components={
+                        'disability_auto_qualify': True,
+                        'base_score': base_score,
+                        'final_score': 100
+                    },
+                    final_score=100,
+                    missing_fields=missing_fields,
+                    equivalent_income=burden_result.equivalent_income,
+                    adult_equivalent=burden_result.adult_equivalent,
+                    burden_ratio=burden_result.burden_ratio
+                )
+            else:
+                raw_burden_score = self._calculate_raw_burden_score(burden_result.burden_ratio)
+                
+                # Calculate weighted components (no disability bonus)
+                weighted_burden = raw_burden_score * 0.75
+                weighted_documentation = documentation_score * 0.25
+                component_total = weighted_burden + weighted_documentation
             
-            # Create comprehensive breakdown
-            breakdown = ScoringBreakdown(
-                burden_score=burden_result.score,
-                documentation_score=documentation_score,
-                disability_score=disability_score,
-                weighted_components={
-                    'burden_weighted': weighted_burden,
-                    'documentation_weighted': weighted_documentation,
-                    'disability_weighted': weighted_disability
-                },
-                final_score=round(final_score, 2),
-                missing_fields=missing_fields,
-                equivalent_income=burden_result.equivalent_income,
-                adult_equivalent=burden_result.adult_equivalent,
-                burden_ratio=burden_result.burden_ratio
-            )
+                breakdown = ScoringBreakdown(
+                    burden_score=raw_burden_score,
+                    documentation_score=documentation_score,
+                    disability_score=disability_score,
+                    weighted_components={
+                        'disability_auto_qualify': False,
+                        'base_score': base_score,
+                        'raw_burden_score': raw_burden_score,
+                        'weighted_burden_75pct': weighted_burden,
+                        'weighted_documentation_25pct': weighted_documentation,
+                        'component_total': component_total,
+                        'final_score_capped': final_score
+                    },
+                    final_score=round(final_score, 2),
+                    missing_fields=missing_fields,
+                    equivalent_income=burden_result.equivalent_income,
+                    adult_equivalent=burden_result.adult_equivalent,
+                    burden_ratio=burden_result.burden_ratio
+                )
             
             # Create audit trail
             audit_trail = self._create_audit_trail(
                 applicant_data, burden_result, breakdown, scoring_start_time
             )
             
-            return {
-                'final_score': breakdown.final_score,
-                'breakdown': {
-                    'burden_score': breakdown.burden_score,
-                    'documentation_score': breakdown.documentation_score,
-                    'disability_score': breakdown.disability_score
-                },
-                'weighted_components': breakdown.weighted_components,
-                'equivalent_income': breakdown.equivalent_income,
-                'adult_equivalent': breakdown.adult_equivalent,
-                'burden_ratio': breakdown.burden_ratio,
-                'missing_fields': breakdown.missing_fields,
-                'audit_trail': audit_trail
-            }
+            # Handle disability auto-qualification vs normal calculation
+            if breakdown.weighted_components.get('disability_auto_qualify'):
+                return {
+                    'final_score': 100,
+                    'breakdown': {
+                        'disability_auto_qualify': True,
+                        'base_score': breakdown.weighted_components['base_score'],
+                        'explanation': 'Automatic 100% qualification due to disability status'
+                    },
+                    'fyp_formula': 'Disability Auto-Qualification: 100 points',
+                    'equivalent_income': breakdown.equivalent_income,
+                    'adult_equivalent': breakdown.adult_equivalent,
+                    'burden_ratio': breakdown.burden_ratio,
+                    'state_median_burden': burden_result.reference_burden,
+                    'missing_fields': breakdown.missing_fields,
+                    'audit_trail': audit_trail
+                }
+            else:
+                return {
+                    'final_score': breakdown.final_score,
+                    'breakdown': {
+                        'base_score': breakdown.weighted_components['base_score'],
+                        'raw_burden_score': breakdown.burden_score,
+                        'documentation_score': breakdown.documentation_score,
+                        'disability_score': breakdown.disability_score,
+                        'weighted_burden_75pct': breakdown.weighted_components['weighted_burden_75pct'],
+                        'weighted_documentation_25pct': breakdown.weighted_components['weighted_documentation_25pct'],
+                        'component_total': breakdown.weighted_components['component_total']
+                    },
+                    'fyp_formula': f"Final = min(100, {breakdown.weighted_components['base_score']} + {breakdown.weighted_components['component_total']:.1f}) = {breakdown.final_score}",
+                    'equivalent_income': breakdown.equivalent_income,
+                    'adult_equivalent': breakdown.adult_equivalent,
+                    'burden_ratio': breakdown.burden_ratio,
+                    'state_median_burden': burden_result.reference_burden,
+                    'missing_fields': breakdown.missing_fields,
+                    'audit_trail': audit_trail
+                }
             
         except Exception as e:
             self.logger.error(f"Scoring error: {str(e)}")
@@ -265,12 +329,13 @@ class EligibilityScoreTool(Tool):
     
     def _calculate_burden_score(self, applicant_data: Dict[str, Any]) -> BurdenCalculationResult:
         """
-        Calculate burden score using CSV equivalent income lookup and AE calculation.
+        FYP: Calculate burden score using state median burden approach.
         
-        Key Innovation: Privacy-preserving equivalent income approach
-        - Uses income_bracket + state to find CSV equivalent income
-        - Calculates Adult Equivalent for household composition adjustment
-        - Compares burden ratios within state-specific income tiers
+        Replaces broken burden_ratio = 1.0 logic with academically sound methodology:
+        1. Calculate applicant burden = AE / equivalent_income
+        2. Get state median burden from lookup table
+        3. Calculate burden ratio = applicant_burden / state_median_burden
+        4. Apply FYP piecewise scoring thresholds
         """
         state = applicant_data.get('state', '')
         income_bracket = applicant_data.get('income_bracket', '')
@@ -284,26 +349,52 @@ class EligibilityScoreTool(Tool):
         adults = max(1, household_size - number_of_children)
         adult_equivalent = 1 + self.OTHER_ADULT_WEIGHT * (adults - 1) + self.CHILD_WEIGHT * number_of_children
         
-        # Step 3: Calculate burden (AE per unit income)
+        # Step 3: Calculate applicant burden
         applicant_burden = adult_equivalent / equivalent_income if equivalent_income > 0 else 0
-        reference_burden = adult_equivalent / equivalent_income  # Same for equivalent income approach
         
-        # Step 4: Calculate burden ratio (household composition effect)
-        burden_ratio = applicant_burden / reference_burden if reference_burden > 0 else 1.0
+        # Step 4: Get state median burden (FYP approach)
+        state_median_burden = self._get_state_median_burden(state)
         
-        # Step 5: Score within tier range based on burden ratio
-        tier_info = self._get_tier_info(income_bracket)
-        score = self._score_burden_ratio(burden_ratio, tier_info['tier'])
+        # Step 5: Calculate burden ratio vs state median (FYP approach)
+        burden_ratio = applicant_burden / state_median_burden if state_median_burden > 0 else 1.0
+        
+        # Step 6: Check for disability auto-qualification
+        disability_status = applicant_data.get('disability_status', False)
+        if disability_status:
+            # Auto-qualify with 100 points, skip all calculations
+            return BurdenCalculationResult(
+                equivalent_income=equivalent_income,
+                adult_equivalent=adult_equivalent,
+                applicant_burden=applicant_burden,
+                reference_burden=state_median_burden,
+                burden_ratio=burden_ratio,
+                tier_range="Disability Auto-Qualification",
+                score=100,
+                confidence=1.0
+            )
+        
+        # Step 7: Apply FYP piecewise scoring
+        raw_burden_score = self._calculate_raw_burden_score(burden_ratio)
+        
+        # Step 8: Get base score
+        base_score = self._get_base_score(income_bracket)
+        
+        # Step 9: Calculate documentation score
+        doc_score = self._calculate_documentation_score(applicant_data)
+        disability_score = self._calculate_disability_score(applicant_data)
+        
+        # Step 10: Calculate final score using FYP formula
+        final_score = self._calculate_final_score(base_score, raw_burden_score, doc_score, disability_score)
         
         return BurdenCalculationResult(
             equivalent_income=equivalent_income,
             adult_equivalent=adult_equivalent,
             applicant_burden=applicant_burden,
-            reference_burden=reference_burden,
+            reference_burden=state_median_burden,  # Now using state median as reference
             burden_ratio=burden_ratio,
-            tier_range=f"{tier_info['tier']} ({tier_info['min']}-{tier_info['max']})",
-            score=score,
-            confidence=1.0  # High confidence in mathematical calculations
+            tier_range=f"Base: {base_score}, Raw burden: {raw_burden_score}",
+            score=final_score,
+            confidence=1.0
         )
     
     def _get_equivalent_income(self, state: str, income_bracket: str) -> float:
@@ -344,46 +435,63 @@ class EligibilityScoreTool(Tool):
         # Default to lowest tier if unknown
         return {'tier': 'T20', 'min': 0, 'max': 15}
     
-    def _score_burden_ratio(self, burden_ratio: float, tier: str) -> float:
-        """
-        Score burden ratio within tier-specific ranges.
+    def _get_state_median_burden(self, state: str) -> float:
+        """Get median burden for state with fallback to national average"""
+        # Map frontend state names to our keys
+        mapped_state = self.state_name_mapping.get(state, state)
         
-        MARKED FOR TESTING: These thresholds need validation with real data.
-        Higher burden ratio = higher score (more need within tier).
-        """
-        tier_range = self.tier_ranges.get(tier, self.tier_ranges['T20'])
-        thresholds = self.burden_thresholds.get(tier, self.burden_thresholds['T20'])
-        
-        min_score = tier_range['min']
-        max_score = tier_range['max']
-        score_range = max_score - min_score
-        
-        if burden_ratio >= thresholds['high']:
-            # Much higher burden than peers - highest score in tier
-            return max_score
-        elif burden_ratio >= thresholds['med']:
-            # Moderately higher burden - mid-high score
-            return min_score + (score_range * 0.75)
-        elif burden_ratio >= thresholds['base']:
-            # Same as peers - mid score
-            return min_score + (score_range * 0.5)
+        # Return state median or national fallback
+        return self.state_median_burdens.get(mapped_state, self.national_median_burden)
+    
+    def _calculate_raw_burden_score(self, burden_ratio: float) -> float:
+        """FYP piecewise scoring based on burden ratio (from FYP formula)"""
+        if burden_ratio <= 1.0:
+            return 50   # Below or equal to median
+        elif burden_ratio <= 1.2:
+            return 70   # Moderately above median
+        elif burden_ratio <= 1.5:
+            return 90   # Significantly above median
         else:
-            # Lower burden than peers - lowest score in tier
-            return min_score
+            return 100  # Much higher than median
+    
+    def _get_base_score(self, income_bracket: str) -> float:
+        """Policy-based base score by income tier"""
+        eligibility_class = self.bracket_to_class.get(income_bracket, 'T20')
+        return self.base_scores.get(eligibility_class, 0)
+    
+    def _calculate_final_score(self, base_score: float, burden_score: float, doc_score: float, disability_score: float) -> float:
+        """
+        FYP Final Score Calculation:
+        Final Score = min(100, Base Score + (Burden Score × 75% + Documentation × 25%))
+        
+        Note: Disability auto-qualification handled separately
+        """
+        
+        # Calculate weighted component score
+        # doc_score is 100 or 0, weighted by 25%
+        weighted_burden = burden_score * 0.75           # 75% weight
+        weighted_documentation = doc_score * 0.25       # 25% weight (100 * 0.25 = 25 max)
+        
+        component_total = weighted_burden + weighted_documentation
+        
+        # Final score = base + components (capped at 100)
+        final_score = min(100, base_score + component_total)
+        
+        return final_score
     
     def _calculate_documentation_score(self, applicant_data: Dict[str, Any]) -> float:
         """
         Calculate documentation score with ALL-OR-NOTHING logic.
         
-        Both is_signature_valid AND is_data_authentic must be true for any points (25% weight).
-        If either is missing or false, score = 0.
+        Both is_signature_valid AND is_data_authentic must be true for 100 points.
+        This will be weighted by 25% in final calculation.
         """
         is_signature_valid = applicant_data.get('is_signature_valid')
         is_data_authentic = applicant_data.get('is_data_authentic')
         
         # ALL-OR-NOTHING: Both must be explicitly true
         if is_signature_valid is True and is_data_authentic is True:
-            return 100.0
+            return 100.0  # 100 points, will be weighted by 25%
         else:
             return 0.0
     
@@ -443,10 +551,10 @@ class EligibilityScoreTool(Tool):
                 'adult_equivalent': burden_result.adult_equivalent,
                 'burden_ratio': burden_result.burden_ratio,
                 'tier_range': burden_result.tier_range,
-                'weights_applied': {
-                    'burden': self.BURDEN_WEIGHT,
-                    'documentation': self.DOCUMENTATION_WEIGHT,
-                    'disability': self.DISABILITY_WEIGHT
+                'fyp_approach': {
+                    'base_score_by_tier': True,
+                    'burden_adjustment': True,
+                    'state_median_comparison': True
                 }
             },
             'scoring_stats': self.scoring_stats.copy(),
@@ -460,18 +568,19 @@ class EligibilityScoreTool(Tool):
         return {
             'final_score': 0.0,
             'breakdown': {
-                'burden_score': 0.0,
+                'base_score': 0.0,
+                'raw_burden_score': 0.0,
                 'documentation_score': 0.0,
-                'disability_score': 0.0
+                'disability_score': 0.0,
+                'weighted_burden_75pct': 0.0,
+                'weighted_documentation_25pct': 0.0,
+                'component_total': 0.0
             },
-            'weighted_components': {
-                'burden_weighted': 0.0,
-                'documentation_weighted': 0.0,
-                'disability_weighted': 0.0
-            },
+            'fyp_formula': 'Error occurred',
             'equivalent_income': 0.0,
             'adult_equivalent': 1.0,
             'burden_ratio': 0.0,
+            'state_median_burden': 0.0,
             'missing_fields': ['error_occurred'],
             'audit_trail': {
                 'timestamp': datetime.now().isoformat(),

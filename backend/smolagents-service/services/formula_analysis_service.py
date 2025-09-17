@@ -18,15 +18,18 @@ from tools.eligibility_score_tool import EligibilityScoreTool
 
 @dataclass
 class FormulaAnalysisResult:
-    """Structured result for formula-based analysis"""
+    """Structured result for FYP formula-based analysis"""
     score: float
-    burden_score: float
+    base_score: float           # New: policy base score
+    burden_adjustment: float    # New: burden component adjustment
+    burden_ratio: float         # BR vs state median
+    state_median_burden: float  # Reference value used
     eligibility_class: str
     explanation: str
     equivalent_income: float
     adult_equivalent: float
-    component_scores: Dict[str, float]
-    confidence: float = 1.0  # Formula calculations are deterministic
+    component_adjustments: Dict[str, float]  # Doc penalty, disability bonus
+    confidence: float = 1.0
 
 
 class FormulaAnalysisService:
@@ -70,35 +73,39 @@ class FormulaAnalysisService:
             if 'error' in scoring_result:
                 raise Exception(f"Scoring failed: {scoring_result['error']}")
             
-            # Extract key values
+            # Extract FYP values
             final_score = scoring_result['final_score']
             breakdown = scoring_result['breakdown']
             equivalent_income = scoring_result['equivalent_income']
             adult_equivalent = scoring_result['adult_equivalent']
+            burden_ratio = scoring_result['burden_ratio']
+            state_median_burden = scoring_result['state_median_burden']
             
-            # Determine eligibility class from income bracket using tool's tier mapping
+            # Determine eligibility class from income bracket
             eligibility_class = self._get_eligibility_class_from_bracket(citizen_data.get('income_bracket', 'Unknown'))
             
-            # Generate human-readable explanation
-            explanation = self._generate_explanation(
-                final_score, breakdown, equivalent_income, adult_equivalent, citizen_data
-            )
+            # Generate FYP explanation
+            explanation = self._generate_fyp_explanation(scoring_result, citizen_data)
             
-            # Format component scores
-            component_scores = {
-                'burden': round(breakdown['burden_score'], 1),
-                'documentation': round(breakdown['documentation_score'], 1),
-                'disability': round(breakdown['disability_score'], 1)
+            # Format component adjustments
+            component_adjustments = {
+                'documentation_penalty': self._has_doc_penalty(citizen_data),
+                'disability_bonus': citizen_data.get('disability_status', False),
+                'weighted_burden_75pct': breakdown['weighted_burden_75pct'],
+                'weighted_documentation_25pct': breakdown['weighted_documentation_25pct']
             }
             
             result = FormulaAnalysisResult(
                 score=final_score,
-                burden_score=scoring_result.get('burden_ratio', final_score),
+                base_score=breakdown['base_score'],
+                burden_adjustment=breakdown['component_total'],  # Total component adjustment
+                burden_ratio=burden_ratio,
+                state_median_burden=state_median_burden,
                 eligibility_class=eligibility_class,
                 explanation=explanation,
                 equivalent_income=equivalent_income,
                 adult_equivalent=adult_equivalent,
-                component_scores=component_scores
+                component_adjustments=component_adjustments
             )
             
             self.logger.info(f"Formula analysis completed: {eligibility_class} ({final_score:.1f})")
@@ -128,77 +135,79 @@ class FormulaAnalysisService:
         
         return bracket_mapping.get(income_bracket, 'Unknown')
     
-    def _generate_explanation(
-        self,
-        final_score: float,
-        breakdown: Dict[str, float],
-        equivalent_income: float,
-        adult_equivalent: float,
-        citizen_data: Dict[str, Any]
-    ) -> str:
-        """
-        Generate human-readable explanation of formula calculations.
+    def _generate_fyp_explanation(self, scoring_result: Dict[str, Any], citizen_data: Dict[str, Any]) -> str:
+        """Generate FYP-style explanation with correct formula"""
         
-        Emphasizes transparency and auditability of the mathematical approach.
-        """
+        final_score = scoring_result['final_score']
+        breakdown = scoring_result['breakdown']
+        burden_ratio = scoring_result['burden_ratio']
+        state_median_burden = scoring_result['state_median_burden']
+        equivalent_income = scoring_result['equivalent_income']
+        adult_equivalent = scoring_result['adult_equivalent']
+        
         household_size = citizen_data.get('household_size', 1)
         state = citizen_data.get('state', 'Unknown')
         income_bracket = citizen_data.get('income_bracket', 'Unknown')
         
-        # Component explanations
-        burden_pts = round(breakdown['burden_score'], 1)
-        doc_pts = round(breakdown['documentation_score'], 1)
-        disability_pts = round(breakdown['disability_score'], 1)
+        # Show the correct formula
+        base_score = breakdown['base_score']
+        burden_75 = breakdown['weighted_burden_75pct']
+        doc_25 = breakdown['weighted_documentation_25pct']
+        component_total = breakdown['component_total']
         
         explanation_parts = [
-            f"Burden score {final_score:.1f} calculated using equivalised income (RM{equivalent_income:.0f})",
-            f"with adult equivalent scale ({adult_equivalent:.1f} for {household_size}-person household)."
+            f"Final score {final_score} = min(100, Base {base_score} + (Burden×75% {burden_75:.1f} + Doc×25% {doc_25:.1f}))",
+            f"Burden ratio {burden_ratio:.3f} vs state median {state_median_burden:.6f}",
+            f"Adult Equivalent {adult_equivalent:.1f} for {household_size}-person household",
+            f"State: {state}, Income bracket: {income_bracket}"
         ]
         
-        # Add component breakdown
-        explanation_parts.append(
-            f"Components: Burden {burden_pts}pts (55%), "
-            f"Documentation {doc_pts}pts (25%), "
-            f"Disability {disability_pts}pts (20%)."
-        )
+        # Add adjustments
+        if self._has_doc_penalty(citizen_data):
+            explanation_parts.append("Documentation penalty applied")
+        if citizen_data.get('disability_status', False):
+            explanation_parts.append("Disability bonus applied (+10 points)")
         
-        # Add state/bracket context for transparency
-        if state != 'Unknown' and income_bracket != 'Unknown':
-            explanation_parts.append(
-                f"State-specific calculation for {state}, income bracket {income_bracket}."
-            )
-        
-        return " ".join(explanation_parts)
+        return ". ".join(explanation_parts) + "."
+    
+    def _has_doc_penalty(self, citizen_data: Dict[str, Any]) -> bool:
+        """Check if documentation penalty was applied"""
+        is_signature_valid = citizen_data.get('is_signature_valid')
+        is_data_authentic = citizen_data.get('is_data_authentic')
+        return not (is_signature_valid is True and is_data_authentic is True)
     
     def get_analysis_info(self) -> Dict[str, Any]:
         """
-        Get information about the formula analysis method.
+        Get information about the FYP formula analysis method.
         
-        Returns metadata about the analysis approach for comparison purposes.
+        Returns metadata about the FYP approach for comparison purposes.
         """
         return {
-            'method': 'formula_based',
-            'approach': 'burden_score_calculation',
+            'method': 'fyp_formula_based',
+            'approach': 'state_median_burden_comparison',
             'transparency': 'full_mathematical_auditability',
             'components': {
-                'burden_weight': 0.55,
-                'documentation_weight': 0.25,
-                'disability_weight': 0.20
+                'base_score_by_tier': True,
+                'burden_adjustment': True,
+                'state_median_comparison': True,
+                'piecewise_thresholds': [1.0, 1.2, 1.5]
             },
             'data_sources': [
                 'hies_cleaned_state_percentile.csv',
-                'national_income_thresholds',
+                'calculated_state_median_burdens',
                 'adult_equivalent_methodology'
             ],
             'strengths': [
-                'Fully transparent calculations',
-                'Mathematically consistent',
-                'Audit-ready compliance',
-                'Reproducible results'
+                'Academically defensible methodology',
+                'State-specific burden comparison',
+                'Policy-compliant base scores',
+                'Mathematically sound (no burden_ratio=1.0)',
+                'Audit-ready with real HIES data'
             ],
-            'limitations': [
-                'Limited contextual flexibility',
-                'Rule-based only',
-                'Cannot handle edge cases beyond formula'
+            'improvements_over_old': [
+                'Fixed broken burden ratio calculation',
+                'Uses real state median values',
+                'Eliminates always-1.0 burden ratio bug',
+                'Implements piecewise scoring thresholds'
             ]
         }
