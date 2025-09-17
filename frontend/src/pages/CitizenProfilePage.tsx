@@ -256,6 +256,9 @@ export default function CitizenProfilePage() {
         setSaveSuccess(true);
         setTimeout(() => setSaveSuccess(false), 3000);
 
+        // Show success alert to user
+        alert("Application submitted successfully! 🎉");
+
         // Clear persisted data after successful submission
         clearPersistedData();
       }
