@@ -1,9 +1,28 @@
 import { CitizenPortalLayout } from "../components/common/CitizenPortalLayout";
 import { CountdownTimer } from "../components/common/CountdownTimer";
+import { WalletConnection } from "../components/common/WalletConnection";
 import { useProfile } from "../hooks/useProfile";
+import { useState } from "react";
 
 export default function CitizenClaimPage() {
   const { profile, loading } = useProfile();
+  const [isClaimProcessing, setIsClaimProcessing] = useState(false);
+
+  const handleClaim = async () => {
+    setIsClaimProcessing(true);
+    try {
+      // TODO: Implement actual smart contract interaction
+      console.log("Claiming tokens...");
+      // Simulate claim process
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      alert("Claim successful! (This is a demo - actual smart contract integration needed)");
+    } catch (error) {
+      console.error("Claim failed:", error);
+      alert("Claim failed. Please try again.");
+    } finally {
+      setIsClaimProcessing(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -94,79 +113,50 @@ export default function CitizenClaimPage() {
           )}
         </div>
 
-        {/* Claim Interface - Coming Soon */}
-        <div className="bg-white rounded-lg shadow-md p-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">
-            Subsidy Claim
-          </h2>
+        {/* Wallet Connection and Claim Interface */}
+        <WalletConnection onClaimClick={handleClaim} />
 
-          <div className="text-center py-12">
-            <div className="bg-blue-50 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
-              <svg
-                className="h-8 w-8 text-blue-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"
-                />
-              </svg>
+        {/* Claim Status */}
+        {isClaimProcessing && (
+          <div className="bg-white rounded-lg shadow-md p-6">
+            <div className="text-center py-8">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+              <h3 className="text-lg font-medium text-gray-900 mb-2">
+                Processing Claim...
+              </h3>
+              <p className="text-gray-600">
+                Please wait while we process your token claim.
+              </p>
             </div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              Subsidy Claim Interface
-            </h3>
-            <p className="text-gray-600 mb-6">
-              The subsidy claim functionality is currently under development.
-              Once your eligibility is confirmed, you'll be able to claim your
-              subsidy directly through this interface.
-            </p>
+          </div>
+        )}
 
-            <div className="bg-gray-50 rounded-lg p-4 text-left">
-              <h4 className="font-medium text-gray-900 mb-2">Coming Soon:</h4>
-              <ul className="text-sm text-gray-600 space-y-1">
-                <li>• Wallet connection integration</li>
-                <li>• Smart contract interaction</li>
-                <li>• Automated subsidy token distribution</li>
-                <li>• Transaction history tracking</li>
-                <li>• Claim status monitoring</li>
+        {/* Token Information */}
+        <div className="bg-white rounded-lg shadow-md p-6">
+          <h3 className="text-lg font-semibold text-gray-800 mb-4">
+            About MMYRC Tokens
+          </h3>
+          <div className="space-y-4">
+            <div className="bg-blue-50 rounded-lg p-4">
+              <h4 className="font-medium text-blue-900 mb-2">Token Details</h4>
+              <ul className="text-sm text-blue-800 space-y-1">
+                <li>• Token Symbol: MMYRC</li>
+                <li>• Allocation Amount: 1,000 tokens per eligible citizen</li>
+                <li>• Network: Sepolia Testnet</li>
+                <li>• Claim Period: Limited time offer</li>
+              </ul>
+            </div>
+            <div className="bg-yellow-50 rounded-lg p-4">
+              <h4 className="font-medium text-yellow-900 mb-2">Important Notes</h4>
+              <ul className="text-sm text-yellow-800 space-y-1">
+                <li>• Connect the same wallet address used in your profile</li>
+                <li>• Ensure you have enough ETH for gas fees</li>
+                <li>• Tokens will be transferred directly to your wallet</li>
+                <li>• Each address can only claim once</li>
               </ul>
             </div>
           </div>
         </div>
-
-        {/* Wallet Information */}
-        {profile?.wallet_address && (
-          <div className="bg-white rounded-lg shadow-md p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">
-              Wallet Information
-            </h3>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">
-                    Registered Wallet Address
-                  </p>
-                  <p className="text-sm font-mono text-gray-900 break-all">
-                    {profile.wallet_address}
-                  </p>
-                </div>
-                <div className="ml-4">
-                  <button className="text-blue-600 hover:text-blue-800 text-sm">
-                    Copy
-                  </button>
-                </div>
-              </div>
-            </div>
-            <p className="text-xs text-gray-500 mt-2">
-              Subsidies will be sent to this wallet address once the claim
-              process is activated.
-            </p>
-          </div>
-        )}
       </div>
     </CitizenPortalLayout>
   );
