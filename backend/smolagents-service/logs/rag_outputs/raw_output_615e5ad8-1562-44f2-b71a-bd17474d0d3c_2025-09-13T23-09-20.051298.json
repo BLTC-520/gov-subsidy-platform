@@ -1,0 +1,13 @@
+{
+  "timestamp": "2025-09-13T23:09:20.051298",
+  "citizen_id": "615e5ad8-1562-44f2-b71a-bd17474d0d3c",
+  "agent_result": {
+    "status": "error",
+    "error": "'list' object has no attribute 'callback'",
+    "error_type": "AttributeError",
+    "analysis_id": "error_1_1757776160",
+    "processed_at": "2025-09-13T23:09:20.051273"
+  },
+  "result_type": "dict",
+  "status": "error"
+}

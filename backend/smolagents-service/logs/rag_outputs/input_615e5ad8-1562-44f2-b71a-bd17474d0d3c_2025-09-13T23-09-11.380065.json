@@ -1,0 +1,21 @@
+{
+  "timestamp": "2025-09-13T23:09:11.380065",
+  "citizen_id": "615e5ad8-1562-44f2-b71a-bd17474d0d3c",
+  "citizen_data": {
+    "id": "615e5ad8-1562-44f2-b71a-bd17474d0d3c",
+    "full_name": "HAR SZE HAO",
+    "date_of_birth": "2003-05-20",
+    "age": 22,
+    "gender": "Male",
+    "household_size": 4,
+    "number_of_children": 2,
+    "disability_status": true,
+    "state": "Johor",
+    "income_bracket": "M2",
+    "is_signature_valid": true,
+    "is_data_authentic": true,
+    "nric": "030520-01-2185"
+  },
+  "prompt_length": 2894,
+  "prompt_preview": "Analyze this REAL citizen's eligibility for Malaysian government subsidies.\n\n\ud83c\uddf2\ud83c\uddfe ACTUAL SUPABASE CITIZEN DATA:\n- ID: 615e5ad8-1562-44f2-b71a-bd17474d0d3c\n- NRIC: 030520-01-2185\n- Full Name: HAR SZE HAO..."
+}

@@ -28,7 +28,7 @@ class AgentConfig:
         return cls(
             model_name=os.getenv("AGENT_MODEL_NAME", "gpt-4o-mini"),
             temperature=float(os.getenv("AGENT_TEMPERATURE", "0.2")),
-            max_tokens=int(os.getenv("AGENT_MAX_TOKENS", "50000")),
+            max_tokens=int(os.getenv("AGENT_MAX_TOKENS", "8000")),  # Reduced from 50000 to 8000
             timeout=int(os.getenv("AGENT_TIMEOUT", "30")),
             api_key=os.getenv("OPENAI_API_KEY"),
         )

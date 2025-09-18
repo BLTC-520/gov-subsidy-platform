@@ -1,0 +1,14 @@
+{
+  "timestamp": "2025-09-13T23:09:20.051556",
+  "citizen_id": "615e5ad8-1562-44f2-b71a-bd17474d0d3c",
+  "score": 50.0,
+  "confidence": 0.3,
+  "eligibility_class": "Unknown",
+  "explanation_length": 101,
+  "retrieved_context_count": 1,
+  "reasoning_steps": 1,
+  "policy_factors_count": 1,
+  "edge_cases_count": 1,
+  "has_web_search": true,
+  "validation_status": false
+}

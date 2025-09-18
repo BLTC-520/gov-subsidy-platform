@@ -5,5 +5,13 @@ Custom tools for smolagents-based citizen analysis system.
 from .citizen_data_validation_tool import CitizenDataValidationTool
 from .eligibility_score_tool import EligibilityScoreTool
 from .chromadb_retriever_tool import ChromaDBRetrieverTool
+from .tavily_search_tool import TavilySearchTool
+from .policy_reasoning_tool import PolicyReasoningTool
 
-__all__ = ["CitizenDataValidationTool", "EligibilityScoreTool", "ChromaDBRetrieverTool"]
+__all__ = [
+    "CitizenDataValidationTool", 
+    "EligibilityScoreTool", 
+    "ChromaDBRetrieverTool",
+    "TavilySearchTool",
+    "PolicyReasoningTool"
+]
