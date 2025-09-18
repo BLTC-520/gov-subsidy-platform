@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
 import { AdminLayout } from "../components/common/AdminLayout";
+import { AdminWalletConnection } from "../components/admin/AdminWalletConnection";
+import { TokenMinting } from "../components/admin/TokenMinting";
+import { AllocationManager } from "../components/admin/AllocationManager";
 import { useAppSettings } from "../hooks/useAppSettings";
 
 export default function SettingsPage() {
@@ -119,6 +122,15 @@ export default function SettingsPage() {
 
   return (
     <AdminLayout title="Application Settings">
+      {/* Admin Wallet Connection */}
+      <AdminWalletConnection requiredAddress="0x221ab896A0B165E9247f5915e81CA95762b85A8D" />
+      
+      {/* Blockchain Management */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <TokenMinting />
+        <AllocationManager />
+      </div>
+
       <div className="bg-white rounded-lg shadow-md p-6">
         <h2 className="text-xl font-semibold text-gray-800 mb-6">
           Application Settings
