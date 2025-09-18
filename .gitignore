@@ -1,24 +1,58 @@
-# Env
+# --------------------
+# Environment
 .env
 **/.env
 **/.env.*
 
-# Node
+# --------------------
+# Node.js / Frontend
 node_modules/
 dist/
 build/
 *.log
+*.lock
 
-# OS
+# --------------------
+# Python / Backend
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+.venv/
+venv/
+.env/
+.mypy_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# --------------------
+# ZKP / Circuits
+zkp/outputs/
+zkp/proofs/
+zkp/circuits/*.r1cs
+zkp/circuits/*.wasm
+zkp/circuits/*.zkey
+zkp/circuits/*.sym
+zkp/circuits/*.ptau
+zkp/*.bin
+
+# --------------------
+# OS files
 .DS_Store
 Thumbs.db
 
+# --------------------
 # TypeScript
 *.tsbuildinfo
 
-# IDE
+# --------------------
+# IDE / Editor
 .vscode/
 .idea/
+*.swp
+*.swo
+
 
 # Python Virtual Environments
 backend/venv/
@@ -37,3 +71,13 @@ stop-all-services.sh
 
 # Artifacts dependencies
 artifacts/.deps/npm/
+=======
+# --------------------
+# Service management scripts
+start-all-services.sh
+stop-all-services.sh
+
+# --------------------
+# Misc
+package-lock.json
+
