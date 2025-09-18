@@ -53,6 +53,25 @@ Thumbs.db
 *.swp
 *.swo
 
+
+# Python Virtual Environments
+backend/venv/
+**/venv/
+**/__pycache__/
+*.pyc
+*.pyo
+
+chroma_db/
+./chroma_db/
+**/chroma_db/
+
+# Service management scripts 
+start-all-services.sh
+stop-all-services.sh
+
+# Artifacts dependencies
+artifacts/.deps/npm/
+=======
 # --------------------
 # Service management scripts
 start-all-services.sh
@@ -61,3 +80,4 @@ stop-all-services.sh
 # --------------------
 # Misc
 package-lock.json
+
