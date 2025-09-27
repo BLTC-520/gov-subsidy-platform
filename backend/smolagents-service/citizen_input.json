@@ -1,0 +1,15 @@
+{
+  "citizen_id": "aa564f45-0f56-48ad-a4c4-28d41e904737",
+  "citizen_data": {
+    "email": "leechongwei@gmail.com",
+    "full_name": "LEE CHONG WEI",
+    "nric": "920203-12-9012",
+    "birthday": "1992-02-03",
+    "income_bracket": "M4",
+    "state": "Sabah",
+    "household_number": 4,
+    "number_of_child": 2,
+    "is_signature_valid": true,
+    "is_data_authentic": true
+  }
+}

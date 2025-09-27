@@ -10,6 +10,8 @@ Follows design patterns from spec/design.md lines 637-695.
 
 from typing import Dict, List, Any, Optional
 import logging
+import pandas as pd
+import os
 from datetime import datetime
 from dataclasses import dataclass
 
@@ -78,13 +80,28 @@ class CitizenDataValidationTool(Tool):
         self.enable_audit_logging = enable_audit_logging
         self.logger = logging.getLogger(__name__)
         
-        # ☆☆☆ Rule-based configuration (100% confidence)
+        # ☆☆☆ Rule-based configuration (100% confidence) - Minimal required fields
         self.required_fields = [
-            "citizen_id", "income_bracket", "state", "age", "residency_duration_months"
+            "income_bracket", "state"  # Only essential fields for eligibility analysis
         ]
-        
-        self.eligible_income_brackets_high_confidence = ["B40"]  # Only B40 gets 100% confidence
-        self.all_known_brackets = ["B40", "M40", "T20", "M40-M1", "M40-M2"]  # Known but lower confidence
+
+        # Smart income bracket mapping (based on ZK circuit classification)
+        self.bracket_mapping = {
+            # B40 sub-categories
+            "B1": "B40", "B2": "B40", "B3": "B40", "B4": "B40",
+            # M40 sub-categories
+            "M1": "M40", "M2": "M40", "M3": "M40", "M4": "M40",
+            # T20 sub-categories
+            "T1": "T20", "T2": "T20",
+            # Legacy categories (for backward compatibility)
+            "B40": "B40", "M40": "M40", "T20": "T20"
+        }
+
+        self.eligible_income_brackets_high_confidence = ["B40"]  # B40 gets 100% confidence
+        self.all_known_brackets = list(self.bracket_mapping.keys())  # All valid brackets
+
+        # Load state-specific income data
+        self.income_data = self._load_income_data()
         
         self.min_age = 18
         self.max_age = 65
@@ -96,6 +113,65 @@ class CitizenDataValidationTool(Tool):
             "high_confidence_validations": 0,
             "manual_review_required": 0
         }
+
+    def _load_income_data(self) -> Optional[pd.DataFrame]:
+        """Load state-specific income data from CSV"""
+        try:
+            csv_path = os.path.join(os.path.dirname(__file__), "../docs/data_cleaning/hies_cleaned_state_percentile.csv")
+            if os.path.exists(csv_path):
+                df = pd.read_csv(csv_path)
+                self.logger.info(f"Loaded income data: {len(df)} records from {csv_path}")
+                return df
+            else:
+                self.logger.warning(f"Income data CSV not found at: {csv_path}")
+                return None
+        except Exception as e:
+            self.logger.error(f"Failed to load income data: {str(e)}")
+            return None
+
+    def _get_equivalent_income(self, state: str, income_bracket: str) -> Optional[float]:
+        """Get equivalent income for state and bracket combination"""
+        if self.income_data is None:
+            return None
+
+        try:
+            # Filter data for the specific state and income bracket
+            match = self.income_data[
+                (self.income_data['state'] == state) &
+                (self.income_data['income_group'] == income_bracket)
+            ]
+
+            if not match.empty:
+                return float(match.iloc[0]['income'])
+            else:
+                self.logger.warning(f"No income data found for {state} {income_bracket}")
+                return None
+
+        except Exception as e:
+            self.logger.error(f"Error getting equivalent income: {str(e)}")
+            return None
+
+    def _enrich_citizen_data(self, citizen_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Enrich citizen data with mapped classification and equivalent income"""
+        enriched_data = citizen_data.copy()
+
+        # Get income bracket and state
+        income_bracket = citizen_data.get("income_bracket", "").upper()
+        state = citizen_data.get("state", "")
+
+        # Map bracket to main category (B1 -> B40)
+        if income_bracket in self.bracket_mapping:
+            mapped_category = self.bracket_mapping[income_bracket]
+            enriched_data["mapped_income_category"] = mapped_category
+            self.logger.info(f"Mapped {income_bracket} -> {mapped_category}")
+
+        # Get equivalent income from CSV
+        equivalent_income = self._get_equivalent_income(state, income_bracket)
+        if equivalent_income:
+            enriched_data["equivalent_income"] = equivalent_income
+            self.logger.info(f"Found equivalent income for {state} {income_bracket}: RM {equivalent_income}")
+
+        return enriched_data
     
     def forward(
         self, 
@@ -118,14 +194,17 @@ class CitizenDataValidationTool(Tool):
         self.validation_stats["total_validations"] += 1
         
         try:
+            # First, enrich the citizen data with smart mapping and equivalent income
+            enriched_data = self._enrich_citizen_data(citizen_data)
+
             validation_results = {}
-            
-            # Perform requested validation types
+
+            # Perform requested validation types on enriched data
             if validation_type in ["format", "all"]:
-                validation_results["format"] = self._validate_format(citizen_data)
-                
+                validation_results["format"] = self._validate_format(enriched_data)
+
             if validation_type in ["completeness", "all"]:
-                validation_results["completeness"] = self._validate_completeness(citizen_data)
+                validation_results["completeness"] = self._validate_completeness(enriched_data)
                 
             if validation_type in ["eligibility", "all"]:
                 validation_results["eligibility"] = self._validate_eligibility(citizen_data, strict_mode)
@@ -155,6 +234,7 @@ class CitizenDataValidationTool(Tool):
             return {
                 "overall_valid": overall_result["valid"],
                 "confidence_score": overall_result["confidence_score"],
+                "enriched_citizen_data": enriched_data,  # Include enriched data with mapping & income
                 "validation_details": {
                     category: {
                         "valid": result.valid,
@@ -261,25 +341,30 @@ class CitizenDataValidationTool(Tool):
     
     def _validate_eligibility(self, citizen_data: Dict[str, Any], strict_mode: bool = False) -> ValidationResult:
         """
-        Hybrid validation: ☆☆☆ for B40, ★★☆ for others
-        
-        Based on design.md requirement: Only B40 gets 100% confidence
+        Smart validation using mapped income categories: ☆☆☆ for B40, ★★☆ for others
+
+        Uses enriched data with mapped categories (B1->B40) and equivalent income
         """
         income_bracket = citizen_data.get("income_bracket", "").upper()
+        mapped_category = citizen_data.get("mapped_income_category", "")
+        equivalent_income = citizen_data.get("equivalent_income", 0)
         age = citizen_data.get("age", 0)
         residency_months = citizen_data.get("residency_duration_months", 0)
-        
-        # ☆☆☆ Rule-based validation for B40 (100% confidence)
-        if income_bracket == "B40":
-            age_eligible = self.min_age <= age <= self.max_age
-            residency_eligible = residency_months >= self.min_residency_months
-            
-            is_valid = age_eligible and residency_eligible
+
+        # ☆☆☆ Rule-based validation for B40 category (includes B1-B4) (100% confidence)
+        if mapped_category == "B40":
+            # Since age and residency are now optional, we're more permissive
+            age_eligible = age == 0 or (self.min_age <= age <= self.max_age)  # Valid if not provided or in range
+            residency_eligible = residency_months == 0 or residency_months >= self.min_residency_months  # Valid if not provided or sufficient
+
+            # B40 category is eligible by default (based on income mapping)
+            is_valid = True  # B40 categories are eligible, optional fields don't block
             
             reasoning_parts = [
-                f"Income bracket: B40 (eligible with high confidence)",
-                f"Age: {age} ({'eligible' if age_eligible else 'not eligible'} - requires {self.min_age}-{self.max_age})",
-                f"Residency: {residency_months} months ({'eligible' if residency_eligible else 'not eligible'} - requires {self.min_residency_months}+ months)"
+                f"Smart mapping: {income_bracket} → {mapped_category} (eligible with high confidence)",
+                f"Equivalent income: RM {equivalent_income:.0f}" if equivalent_income else "No equivalent income data",
+                f"Age check: {'✓' if age_eligible else '✗'} (requires 18-65)" if age else "Age not provided (optional)",
+                f"Residency check: {'✓' if residency_eligible else '✗'} (requires 6+ months)" if residency_months else "Residency not provided (optional)"
             ]
             
             return ValidationResult(

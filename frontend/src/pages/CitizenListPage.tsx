@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { AdminLayout } from "../components/common/AdminLayout";
+import { useAppSettings } from "../hooks/useAppSettings";
 
 interface Citizen {
   id: string;
@@ -11,26 +13,20 @@ interface Citizen {
   income_bracket: string | null;
   state: string | null;
   eligibility_score: number | null;
+  wallet_address: string | null;
   created_at: string;
 }
 
-interface AnalysisResult {
-  eligibility: "Yes" | "No" | "Partial";
-  score: number;
-}
-
-interface AnalysisState {
-  [citizenId: string]: {
-    status: "idle" | "analyzing" | "completed";
-    result?: AnalysisResult;
-  };
-}
 
 export default function CitizenListPage() {
+  const navigate = useNavigate();
+  const { settings } = useAppSettings();
   const [citizens, setCitizens] = useState<Citizen[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string>("");
-  const [analysisState, setAnalysisState] = useState<AnalysisState>({});
+  const [csvGenerating, setCsvGenerating] = useState(false);
+  const [csvCopied, setCsvCopied] = useState(false);
+  const [jsonCopied, setJsonCopied] = useState<string | null>(null);
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
@@ -113,52 +109,101 @@ export default function CitizenListPage() {
   }, [loadCitizens]);
 
   const handleAnalyze = async (citizenId: string) => {
-    setAnalysisState((prev) => ({
-      ...prev,
-      [citizenId]: { status: "analyzing" },
-    }));
+    // Navigate directly to the analysis results page for dual-analysis demonstration
+    navigate(`/admin/analysis-results/${citizenId}`);
+  };
+
+  const generateEligibilityCSV = async () => {
+    setCsvGenerating(true);
+    setCsvCopied(false);
 
     try {
-      // Mock API call - replace with actual endpoint
-      const response = await fetch(`/api/analyze/${citizenId}`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+      // Fetch all eligible citizens (no pagination, no search filters)
+      const { data: eligibleCitizens, error: fetchError } = await supabase
+        .from("profiles")
+        .select("wallet_address, eligibility_score")
+        .eq("is_admin", false)
+        .gte("eligibility_score", settings.eligibility_threshold)
+        .not("wallet_address", "is", null);
 
-      if (!response.ok) {
-        throw new Error("Analysis failed");
+      if (fetchError) {
+        throw fetchError;
       }
 
-      const result: AnalysisResult = await response.json();
+      if (!eligibleCitizens || eligibleCitizens.length === 0) {
+        alert("No eligible citizens found with wallet addresses");
+        return;
+      }
 
-      setAnalysisState((prev) => ({
-        ...prev,
-        [citizenId]: { status: "completed", result },
-      }));
+      // Generate CSV content
+      const csvHeader = "address,amount";
+      const csvRows = eligibleCitizens.map(
+        (citizen) => `${citizen.wallet_address},${settings.allocation_amount}`
+      );
+      const csvContent = [csvHeader, ...csvRows].join("\n");
 
-      // Update the citizen's eligibility score in the database
-      await supabase
-        .from("profiles")
-        .update({ eligibility_score: result.score })
-        .eq("id", citizenId);
-    } catch {
-      // Mock successful response for demo
-      const mockResult: AnalysisResult = {
-        eligibility:
-          Math.random() > 0.5 ? "Yes" : Math.random() > 0.5 ? "No" : "Partial",
-        score: Math.floor(Math.random() * 100),
-      };
+      // Copy to clipboard
+      await navigator.clipboard.writeText(csvContent);
+      setCsvCopied(true);
 
-      setTimeout(() => {
-        setAnalysisState((prev) => ({
-          ...prev,
-          [citizenId]: { status: "completed", result: mockResult },
-        }));
-      }, 2000);
+      // Auto-hide the copied message after 3 seconds
+      setTimeout(() => setCsvCopied(false), 3000);
+
+    } catch (err) {
+      console.error("Error generating CSV:", err);
+      alert("Failed to generate CSV. Please try again.");
+    } finally {
+      setCsvGenerating(false);
     }
   };
+
+  const handleCopyJson = async (citizen: Citizen) => {
+    try {
+      // Extract birthday from NRIC (format: YYMMDD-PB-####)
+      const extractBirthdayFromNric = (nric: string | null) => {
+        if (!nric) return null;
+        const nricParts = nric.split('-');
+        if (nricParts.length >= 1 && nricParts[0].length === 6) {
+          const yymmdd = nricParts[0];
+          const yy = parseInt(yymmdd.substring(0, 2));
+          const mm = yymmdd.substring(2, 4);
+          const dd = yymmdd.substring(4, 6);
+          // Assume years 00-30 are 2000s, 31-99 are 1900s
+          const yyyy = yy <= 30 ? 2000 + yy : 1900 + yy;
+          return `${yyyy}-${mm}-${dd}`;
+        }
+        return null;
+      };
+
+      // Create agent input format matching the expected schema
+      const agentInput = {
+        citizen_id: citizen.id,
+        citizen_data: {
+          email: citizen.email,
+          full_name: citizen.full_name,
+          nric: citizen.nric,
+          birthday: extractBirthdayFromNric(citizen.nric),
+          monthly_income: citizen.monthly_income,
+          income_bracket: citizen.income_bracket,
+          state: citizen.state,
+          household_number: 4, // Default value - you can adjust this
+          number_of_child: 2, // Default value - you can adjust this
+          is_signature_valid: true, // Default value - you can adjust this
+          is_data_authentic: true // Default value - you can adjust this
+        }
+      };
+
+      const jsonString = JSON.stringify(agentInput, null, 2);
+      await navigator.clipboard.writeText(jsonString);
+
+      setJsonCopied(citizen.id);
+      setTimeout(() => setJsonCopied(null), 2000);
+    } catch (err) {
+      console.error("Failed to copy JSON:", err);
+      alert("Failed to copy JSON. Please try again.");
+    }
+  };
+
 
   const handleSort = (field: keyof Citizen) => {
     if (sortField === field) {
@@ -170,59 +215,6 @@ export default function CitizenListPage() {
   };
 
   const getAnalysisStatus = (citizen: Citizen) => {
-    const analysis = analysisState[citizen.id];
-
-    if (analysis?.status === "analyzing") {
-      return (
-        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-          <svg
-            className="animate-spin -ml-1 mr-1 h-3 w-3"
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-          >
-            <circle
-              className="opacity-25"
-              cx="12"
-              cy="12"
-              r="10"
-              stroke="currentColor"
-              strokeWidth="4"
-            ></circle>
-            <path
-              className="opacity-75"
-              fill="currentColor"
-              d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-            ></path>
-          </svg>
-          Analyzing...
-        </span>
-      );
-    }
-
-    if (analysis?.result) {
-      const { eligibility } = analysis.result;
-      if (eligibility === "Yes") {
-        return (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
-            Eligible ✅
-          </span>
-        );
-      } else if (eligibility === "No") {
-        return (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-rose-100 text-rose-800">
-            Not Eligible ❌
-          </span>
-        );
-      } else {
-        return (
-          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-800">
-            Partial
-          </span>
-        );
-      }
-    }
-
     if (citizen.eligibility_score !== null) {
       return (
         <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
@@ -391,7 +383,7 @@ export default function CitizenListPage() {
               </select>
             </div>
 
-            <div className="flex items-end">
+            <div className="flex items-end space-x-3">
               <button
                 onClick={() => {
                   setSearchTerm("");
@@ -399,9 +391,16 @@ export default function CitizenListPage() {
                   setIncomeFilter("");
                   setCurrentPage(1);
                 }}
-                className="w-full px-4 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2"
+                className="flex-1 px-4 py-2 bg-slate-600 text-white rounded-md hover:bg-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2"
               >
                 Clear Filters
+              </button>
+              <button
+                onClick={generateEligibilityCSV}
+                disabled={csvGenerating}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {csvGenerating ? "Generating..." : csvCopied ? "Copied!" : "Generate CSV"}
               </button>
             </div>
           </div>
@@ -517,17 +516,21 @@ export default function CitizenListPage() {
                           {getAnalysisStatus(citizen)}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                          <button
-                            onClick={() => handleAnalyze(citizen.id)}
-                            disabled={
-                              analysisState[citizen.id]?.status === "analyzing"
-                            }
-                            className="bg-slate-700 text-white px-3 py-1 rounded-md text-sm hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {analysisState[citizen.id]?.status === "analyzing"
-                              ? "Analyzing..."
-                              : "Analyze"}
-                          </button>
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => handleAnalyze(citizen.id)}
+                              className="bg-slate-700 text-white px-3 py-1 rounded-md text-sm hover:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2"
+                            >
+                              Analyze
+                            </button>
+                            <button
+                              onClick={() => handleCopyJson(citizen)}
+                              className="bg-blue-600 text-white px-3 py-1 rounded-md text-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+                              title="Copy JSON for agent testing"
+                            >
+                              {jsonCopied === citizen.id ? "Copied!" : "Copy JSON"}
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}

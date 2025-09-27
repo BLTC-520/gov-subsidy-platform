@@ -17,6 +17,9 @@ from datetime import datetime
 import os
 from dotenv import load_dotenv
 
+# Import tools
+from tools.eligibility_score_tool import EligibilityScoreTool
+
 # Load environment variables
 load_dotenv()
 
@@ -66,6 +69,10 @@ class WebSocketMessage(BaseModel):
     session_id: str
     timestamp: str
     data: dict
+
+class EligibilityScoreRequest(BaseModel):
+    citizen_id: str
+    citizen_data: dict
 
 # Utility functions
 def generate_analysis_id() -> str:

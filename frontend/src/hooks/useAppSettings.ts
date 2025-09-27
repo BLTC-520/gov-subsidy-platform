@@ -3,11 +3,15 @@ import { supabase } from '../lib/supabase';
 
 export interface AppSettings {
   application_deadline: string | null;
+  eligibility_threshold: number;
+  allocation_amount: number;
 }
 
 export const useAppSettings = () => {
   const [settings, setSettings] = useState<AppSettings>({
-    application_deadline: null
+    application_deadline: null,
+    eligibility_threshold: 80,
+    allocation_amount: 1000
   });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -21,17 +25,23 @@ export const useAppSettings = () => {
       const { data, error } = await supabase
         .from('app_settings')
         .select('setting_key, setting_value')
-        .in('setting_key', ['application_deadline']);
+        .in('setting_key', ['application_deadline', 'eligibility_threshold', 'allocation_amount']);
 
       if (error) throw error;
 
       const settingsMap: AppSettings = {
-        application_deadline: null
+        application_deadline: null,
+        eligibility_threshold: 80,
+        allocation_amount: 1000
       };
 
       data?.forEach(setting => {
         if (setting.setting_key === 'application_deadline') {
           settingsMap.application_deadline = setting.setting_value;
+        } else if (setting.setting_key === 'eligibility_threshold') {
+          settingsMap.eligibility_threshold = parseFloat(setting.setting_value) || 80;
+        } else if (setting.setting_key === 'allocation_amount') {
+          settingsMap.allocation_amount = parseFloat(setting.setting_value) || 1000;
         }
       });
 

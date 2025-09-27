@@ -209,17 +209,21 @@ export function AllocationManager() {
           <h3 className="font-medium text-gray-800 mb-2">
             Parsed Allocations ({csvData.length} entries)
           </h3>
-          <div className="bg-gray-50 rounded-lg p-4 max-h-60 overflow-y-auto">
-            <div className="grid grid-cols-2 gap-4 text-sm font-medium text-gray-600 mb-2">
+          <div className="border border-gray-200 rounded-lg overflow-hidden">
+            <div className="bg-gray-50 grid grid-cols-2 gap-4 text-sm font-medium text-gray-600 p-3 border-b border-gray-200">
               <div>Address</div>
               <div>Amount (MMYRC)</div>
             </div>
-            {csvData.map((item, index) => (
-              <div key={index} className="grid grid-cols-2 gap-4 text-sm py-1 border-b border-gray-200">
-                <div className="font-mono text-xs">{item.address}</div>
-                <div>{item.amount.toLocaleString()}</div>
-              </div>
-            ))}
+            <div className="max-h-60 overflow-y-auto">
+              {csvData.map((item, index) => (
+                <div key={index} className="grid grid-cols-2 gap-4 text-sm py-2 px-3 border-b border-gray-100 last:border-b-0 hover:bg-gray-50">
+                  <div className="font-mono text-xs truncate" title={item.address}>
+                    {item.address}
+                  </div>
+                  <div className="text-right">{item.amount.toLocaleString()}</div>
+                </div>
+              ))}
+            </div>
           </div>
           
           <div className="mt-4 p-3 bg-blue-50 rounded-md">
@@ -276,9 +280,22 @@ export function AllocationManager() {
             ✅ Allocations set successfully!
           </p>
           {hash && (
-            <p className="text-green-700 text-xs mt-1 font-mono">
-              Transaction: {hash}
-            </p>
+            <div className="mt-2">
+              <a
+                href={`https://sepolia.etherscan.io/tx/${hash}#eventlog`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs font-medium"
+              >
+                View on Sepolia Etherscan
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </a>
+              <p className="text-green-700 text-xs mt-1 font-mono break-all">
+                Transaction: {hash}
+              </p>
+            </div>
           )}
         </div>
       )}

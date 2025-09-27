@@ -10,6 +10,7 @@ import CitizenClaimPage from "./pages/CitizenClaimPage";
 import CitizenDashboard from "./pages/CitizenDashboard";
 import FileUploadPage from "./pages/FileUploadPage";
 import ZKDemoPage from "./pages/ZKDemoPage";
+import AnalysisResultsPage from "./pages/AnalysisResultsPage";
 import { RouteGuard } from "./components/auth/RouteGuard";
 import { CitizenRedirect } from "./components/common/CitizenRedirect";
 
@@ -49,6 +50,14 @@ function App() {
           element={
             <RouteGuard requiredRole="admin">
               <CitizenListPage />
+            </RouteGuard>
+          }
+        />
+        <Route
+          path="/admin/analysis-results/:citizenId"
+          element={
+            <RouteGuard requiredRole="admin">
+              <AnalysisResultsPage />
             </RouteGuard>
           }
         />

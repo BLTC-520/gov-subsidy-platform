@@ -206,8 +206,38 @@ console.log('Mock LHDN Public Key:', MOCK_PUBLIC_KEY);
 // Mock citizen database - simulates LHDN's citizen income records
 // Key: IC number (without hyphens), Value: income and name data
 const mockCitizensData = {
+  // Existing profiles
   '030520012185': { income: 7000, name: 'HAR SZE HAO' },       // B40_LOW category
-  '030322016289': { income: 2350, name: 'PANG ZHAN HUANG' }   // B40_HIGH category
+  '030322016289': { income: 2350, name: 'PANG ZHAN HUANG' },   // B40_HIGH category
+
+  // B40 Income Range (Below RM4,850)
+  '950101011234': { income: 1500, name: 'NURUL AISYAH BINTI AHMAD' },
+  '880215025678': { income: 2800, name: 'LIM WEI JIAN' },
+  '920308031122': { income: 3200, name: 'KUMAR A/L RAJAN' },
+  '850420043344': { income: 4500, name: 'TAN MEI LING' },
+
+  // M40-M1 Range (RM4,851 - RM7,100)
+  '910512055566': { income: 5000, name: 'FARAH BINTI IBRAHIM' },
+  '870625067788': { income: 5800, name: 'WONG KAR WAI' },
+  '930710079900': { income: 6500, name: 'SITI NURHALIZA BINTI TARUDIN' },
+  '840822081234': { income: 7000, name: 'RAJESH A/L KUMAR' },
+
+  // M40-M2 Range (RM7,101 - RM10,970)
+  '960905095567': { income: 7500, name: 'CHUA YEN LING' },
+  '890118107889': { income: 8900, name: 'MUHAMMAD HAFIZ BIN ZAINUDIN' },
+  '920203129012': { income: 9800, name: 'LEE CHONG WEI' },
+  '861114143345': { income: 10500, name: 'ANITA A/P SUPPIAH' },
+
+  // T20 Range (Above RM10,970)
+  '940425155678': { income: 12000, name: 'DATO\' TAN BOON HUAT' },
+  '810507167890': { income: 15000, name: 'DR. AMINAH BINTI KASSIM' },
+  '970618179123': { income: 18500, name: 'VINCENT CHIN YONG SENG' },
+  '831022181456': { income: 22000, name: 'DATIN LATIFAH BINTI ABDULLAH' },
+
+  // Edge cases for testing
+  '000101010001': { income: 4850, name: 'BOUNDARY TEST B40-M40' },      // Exact B40/M40 boundary
+  '000202020002': { income: 7100, name: 'BOUNDARY TEST M40-M1-M2' },    // Exact M40-M1/M40-M2 boundary
+  '000303030003': { income: 10970, name: 'BOUNDARY TEST M40-T20' }      // Exact M40/T20 boundary
 };
 
 /**
@@ -239,8 +269,8 @@ function signData(data, privateKey) {
  *               $ref: '#/components/schemas/HealthResponse'
  */
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+  res.json({
+    status: 'OK',
     service: 'Mock LHDN API',
     timestamp: new Date().toISOString(),
     public_key: MOCK_PUBLIC_KEY
@@ -295,10 +325,10 @@ app.get('/health', (req, res) => {
 app.post('/api/verify-income', (req, res) => {
   try {
     const { ic } = req.body;
-    
+
     // Input validation - ensure IC number is provided
     if (!ic) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'IC number is required',
         code: 'MISSING_IC'
       });
@@ -307,13 +337,13 @@ app.post('/api/verify-income', (req, res) => {
     // Clean IC number by removing hyphens for database lookup
     // Converts "030520-01-2185" to "030520012185"
     const cleanIC = ic.replace(/-/g, '');
-    
+
     // Look up citizen data in mock database
     const citizenData = mockCitizensData[cleanIC];
-    
+
     // Return 404 if citizen not found in database
     if (!citizenData) {
-      return res.status(404).json({ 
+      return res.status(404).json({
         error: 'Citizen not found in LHDN database',
         code: 'CITIZEN_NOT_FOUND'
       });
@@ -332,7 +362,7 @@ app.post('/api/verify-income', (req, res) => {
     // Generate digital signature for data integrity
     // This proves the data came from LHDN and hasn't been tampered with
     const signature = signData(responseData, MOCK_PRIVATE_KEY);
-    
+
     // Combine response data with signature and public key
     const finalResponse = {
       ...responseData,
@@ -341,12 +371,12 @@ app.post('/api/verify-income', (req, res) => {
     };
 
     console.log(`✅ Income verified for IC: ${ic}, Income: RM${citizenData.income}`);
-    
+
     res.json(finalResponse);
 
   } catch (error) {
     console.error('Error in verify-income:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       error: 'Internal server error',
       code: 'INTERNAL_ERROR'
     });
@@ -381,11 +411,11 @@ app.get('/api/test-ics', (req, res) => {
   // Provides both raw and formatted IC numbers for convenience
   const testICs = Object.keys(mockCitizensData).map(ic => ({
     ic: ic, // Raw IC without formatting
-    formatted_ic: `${ic.slice(0,6)}-${ic.slice(6,8)}-${ic.slice(8)}`, // Formatted with hyphens
+    formatted_ic: `${ic.slice(0, 6)}-${ic.slice(6, 8)}-${ic.slice(8)}`, // Formatted with hyphens
     income: mockCitizensData[ic].income,
     name: mockCitizensData[ic].name
   }));
-  
+
   res.json({
     message: 'Available test IC numbers',
     test_citizens: testICs
@@ -429,20 +459,20 @@ app.get('/api/test-ics', (req, res) => {
 app.post('/api/verify-signature', (req, res) => {
   try {
     const { data, signature } = req.body;
-    
+
     // Generate expected signature using the same algorithm and private key
     const expectedSignature = signData(data, MOCK_PRIVATE_KEY);
-    
+
     // Compare signatures - constant time comparison would be better for security
     const isValid = signature === expectedSignature;
-    
+
     res.json({
       is_valid: isValid,
       message: isValid ? 'Signature is valid' : 'Signature is invalid'
     });
-    
+
   } catch (error) {
-    res.status(400).json({ 
+    res.status(400).json({
       error: 'Invalid signature verification request',
       code: 'INVALID_REQUEST'
     });
@@ -465,10 +495,10 @@ app.use((err, req, res, next) => {
       details: err.message
     });
   }
-  
+
   // Generic error handler for unexpected errors
   console.error('Unhandled error:', err);
-  res.status(500).json({ 
+  res.status(500).json({
     error: 'Something went wrong!',
     code: 'UNHANDLED_ERROR'
   });

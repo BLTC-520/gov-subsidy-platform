@@ -2,6 +2,7 @@ import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
 import { useSubsidyClaim } from '../../hooks/useSubsidyClaim';
 import { useMMYRCToken } from '../../hooks/useMMYRCToken';
+import { useProfile } from '../../hooks/useProfile';
 
 interface WalletConnectionProps {
   onClaimClick?: () => void;
@@ -9,17 +10,22 @@ interface WalletConnectionProps {
 
 export function WalletConnection({ onClaimClick }: WalletConnectionProps) {
   const { address, isConnected } = useAccount();
-  const { 
-    canClaim, 
-    formattedAllocation, 
-    alreadyClaimed, 
-    isPending, 
-    isConfirming, 
+  const { profile } = useProfile();
+  const {
+    canClaim,
+    formattedAllocation,
+    alreadyClaimed,
+    isPending,
+    isConfirming,
     isConfirmed,
     claimTokens,
-    error 
+    error
   } = useSubsidyClaim();
   const { formattedBalance, symbol } = useMMYRCToken();
+
+  // Check if connected wallet matches the stored wallet address
+  const isWalletAddressMatch = profile?.wallet_address?.toLowerCase() === address?.toLowerCase();
+  const hasStoredAddress = !!profile?.wallet_address;
 
   const handleClaim = async () => {
     try {
@@ -72,6 +78,38 @@ export function WalletConnection({ onClaimClick }: WalletConnectionProps) {
         </div>
       )}
 
+      {/* Wallet Address Mismatch Warning */}
+      {hasStoredAddress && !isWalletAddressMatch ? (
+        <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+          <div className="flex items-center">
+            <svg
+              className="h-5 w-5 text-red-600 mr-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 15.5c-.77.833.192 2.5 1.732 2.5z"
+              />
+            </svg>
+            <div>
+              <p className="text-sm font-medium text-red-800">
+                Incorrect wallet
+              </p>
+              <p className="text-sm text-red-700">
+                You can't claim on behalf of other citizens.
+              </p>
+              <p className="text-xs text-red-600 mt-1 font-mono">
+                Expected: {profile?.wallet_address}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* Claim Status */}
       {alreadyClaimed ? (
         <div className="bg-gray-50 border border-gray-200 rounded-md p-4">
@@ -99,7 +137,7 @@ export function WalletConnection({ onClaimClick }: WalletConnectionProps) {
             </div>
           </div>
         </div>
-      ) : canClaim && formattedAllocation > 0 ? (
+      ) : canClaim && formattedAllocation > 0 && isWalletAddressMatch ? (
         <div className="bg-green-50 border border-green-200 rounded-md p-4 mb-6">
           <div className="flex items-center mb-3">
             <svg
@@ -135,7 +173,7 @@ export function WalletConnection({ onClaimClick }: WalletConnectionProps) {
             </p>
           )}
         </div>
-      ) : formattedAllocation > 0 ? (
+      ) : formattedAllocation > 0 && isWalletAddressMatch ? (
         <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
           <div className="flex items-center">
             <svg

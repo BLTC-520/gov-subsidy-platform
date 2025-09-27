@@ -8,6 +8,8 @@ import { useAppSettings } from "../hooks/useAppSettings";
 export default function SettingsPage() {
   const { settings, loading, error, updateSetting } = useAppSettings();
   const [deadlineInput, setDeadlineInput] = useState("");
+  const [thresholdInput, setThresholdInput] = useState("");
+  const [allocationInput, setAllocationInput] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<{
@@ -49,7 +51,7 @@ export default function SettingsPage() {
     return () => clearInterval(interval);
   }, [settings.application_deadline]);
 
-  // Initialize deadline input when settings load
+  // Initialize inputs when settings load
   useEffect(() => {
     if (settings.application_deadline) {
       // Convert to local datetime format for input
@@ -61,7 +63,9 @@ export default function SettingsPage() {
         .slice(0, 16);
       setDeadlineInput(localDatetime);
     }
-  }, [settings.application_deadline]);
+    setThresholdInput(settings.eligibility_threshold.toString());
+    setAllocationInput(settings.allocation_amount.toString());
+  }, [settings.application_deadline, settings.eligibility_threshold, settings.allocation_amount]);
 
   const handleSaveDeadline = async () => {
     if (!deadlineInput) return;
@@ -81,6 +85,52 @@ export default function SettingsPage() {
       }
     } catch (err) {
       console.error("Error saving deadline:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveThreshold = async () => {
+    if (!thresholdInput) return;
+
+    setSaving(true);
+    setSaveSuccess(false);
+
+    try {
+      const success = await updateSetting(
+        "eligibility_threshold",
+        thresholdInput
+      );
+
+      if (success) {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      }
+    } catch (err) {
+      console.error("Error saving threshold:", err);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveAllocation = async () => {
+    if (!allocationInput) return;
+
+    setSaving(true);
+    setSaveSuccess(false);
+
+    try {
+      const success = await updateSetting(
+        "allocation_amount",
+        allocationInput
+      );
+
+      if (success) {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000);
+      }
+    } catch (err) {
+      console.error("Error saving allocation:", err);
     } finally {
       setSaving(false);
     }
@@ -205,6 +255,69 @@ export default function SettingsPage() {
                 {saving ? "Saving..." : "Save"}
               </button>
             </div>
+          </div>
+
+          {/* Eligibility Threshold Setting */}
+          <div>
+            <label
+              htmlFor="threshold"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              Eligibility Threshold Score
+            </label>
+            <div className="flex space-x-3">
+              <input
+                type="number"
+                id="threshold"
+                value={thresholdInput}
+                onChange={(e) => setThresholdInput(e.target.value)}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                min="0"
+                max="100"
+                step="1"
+              />
+              <button
+                onClick={handleSaveThreshold}
+                disabled={saving || !thresholdInput}
+                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {saving ? "Saving..." : "Save"}
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Citizens with scores above this threshold will be eligible for allocations
+            </p>
+          </div>
+
+          {/* Allocation Amount Setting */}
+          <div>
+            <label
+              htmlFor="allocation"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              Allocation Amount (MMYRC)
+            </label>
+            <div className="flex space-x-3">
+              <input
+                type="number"
+                id="allocation"
+                value={allocationInput}
+                onChange={(e) => setAllocationInput(e.target.value)}
+                className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                min="0"
+                step="1"
+              />
+              <button
+                onClick={handleSaveAllocation}
+                disabled={saving || !allocationInput}
+                className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {saving ? "Saving..." : "Save"}
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Amount of tokens to allocate to each eligible citizen
+            </p>
           </div>
 
           {/* Save Success Message */}

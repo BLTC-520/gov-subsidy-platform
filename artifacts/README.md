@@ -8,3 +8,15 @@ SubsidyClaim.sol Deployment Address
 0xeF79df53ae0d09b0219da032170Bf9F502d94009
 
 All on Sepolia Testnet
+
+nurulaisyah@gmail.com
+A12345678
+
+szehaohar2@gmail.com
+123456
+
+testT20@gmail.com
+A12345678
+
+szehaohar@1utar.my
+123456

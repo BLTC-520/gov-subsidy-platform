@@ -160,9 +160,22 @@ export function TokenMinting() {
               ✅ Tokens minted successfully!
             </p>
             {hash && (
-              <p className="text-green-700 text-xs mt-1 font-mono">
-                Transaction: {hash}
-              </p>
+              <div className="mt-2">
+                <a
+                  href={`https://sepolia.etherscan.io/tx/${hash}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-800 text-xs font-medium"
+                >
+                  View on Sepolia Etherscan
+                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+                <p className="text-green-700 text-xs mt-1 font-mono break-all">
+                  Transaction: {hash}
+                </p>
+              </div>
             )}
           </div>
         )}
